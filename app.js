@@ -8,11 +8,26 @@
     parcelLayer: null,
     parcelDataLoaded: false,
     selectedParcel: null,
+    highlightedParcelLayer: null,
+    baseMode: "terrain",
     toastTimer: null,
     rules: { yellowDays: 90, redDays: 30 },
     ownerFilter: { region: "all", crop: "all", status: "all", search: "", minArea: "", maxArea: "" },
     contractFilter: { region: "all", status: "all", payment: "all" },
+    cropFilter: { keyword: "", category: "all", enabled: "all" },
     alertPeriod: "week",
+    crops: [
+      { id: "CP-001", name: "早稻", category: "粮食作物", season: "春夏季", cycle: "110-125 天", unit: "亩", enabled: true, description: "项目区春季主栽水稻" },
+      { id: "CP-002", name: "晚稻", category: "粮食作物", season: "夏秋季", cycle: "120-140 天", unit: "亩", enabled: true, description: "项目区秋季主栽水稻" },
+      { id: "CP-003", name: "小麦", category: "粮食作物", season: "秋冬季", cycle: "180-220 天", unit: "亩", enabled: true, description: "轮作粮食作物" },
+      { id: "CP-004", name: "玉米", category: "粮食作物", season: "春夏季", cycle: "95-120 天", unit: "亩", enabled: true, description: "旱地及轮作作物" },
+      { id: "CP-005", name: "油菜", category: "油料作物", season: "秋冬季", cycle: "180-220 天", unit: "亩", enabled: true, description: "稻油轮作作物" },
+      { id: "CP-006", name: "蔬菜", category: "蔬菜作物", season: "全年", cycle: "30-120 天", unit: "亩", enabled: true, description: "叶菜、茄果和根茎类" },
+      { id: "CP-007", name: "水果", category: "园艺作物", season: "全年", cycle: "多年生", unit: "亩", enabled: true, description: "果园及设施水果" },
+      { id: "CP-008", name: "豆类", category: "经济作物", season: "春夏季", cycle: "80-110 天", unit: "亩", enabled: true, description: "大豆、毛豆等豆科作物" },
+      { id: "CP-009", name: "水产养殖", category: "水产", season: "全年", cycle: "分批次", unit: "亩", enabled: true, description: "池塘及稻渔综合种养" },
+      { id: "CP-010", name: "花卉苗木", category: "园艺作物", season: "全年", cycle: "分品种", unit: "亩", enabled: true, description: "苗木和观赏花卉" },
+    ],
     owners: [
       { id: "YH-001", name: "绍兴市滨海新区禾润农业有限公司", contact: "赵志强", phone: "138****2168", area: 2180, region: "江滨农场一片区", crop: "晚稻", contract: "正常履约", contractStatus: "green", expiry: "2028-12-31", plots: 26 },
       { id: "YH-002", name: "浙江绿野粮食专业合作社", contact: "陈建华", phone: "139****7092", area: 1640, region: "江滨农场二片区", crop: "早稻", contract: "即将到期", contractStatus: "yellow", expiry: "2026-11-20", plots: 19 },
@@ -21,7 +36,7 @@
       { id: "YH-005", name: "浙江滨禾现代农业有限公司", contact: "徐晓波", phone: "158****8306", area: 860, region: "滨海产业园区", crop: "水产养殖", contract: "正常履约", contractStatus: "green", expiry: "2027-09-18", plots: 9 },
       { id: "YH-006", name: "绍兴越城绿谷农场", contact: "李芳", phone: "150****5240", area: 760, region: "江滨农场三片区", crop: "蔬菜", contract: "即将到期", contractStatus: "yellow", expiry: "2026-12-02", plots: 11 },
       { id: "YH-007", name: "绍兴滨海丰收农业合作社", contact: "周建明", phone: "139****9173", area: 1260, region: "江滨农场二片区", crop: "晚稻", contract: "正常履约", contractStatus: "green", expiry: "2028-06-30", plots: 14 },
-      { id: "YH-008", name: "越城区田园农业服务中心", contact: "俞晓东", phone: "136****6552", area: 1110, region: "江滨农场三片区", crop: "果蔬", contract: "已逾期", contractStatus: "red", expiry: "2026-08-31", plots: 10 },
+      { id: "YH-008", name: "越城区田园农业服务中心", contact: "俞晓东", phone: "136****6552", area: 1110, region: "江滨农场三片区", crop: "水果", contract: "已逾期", contractStatus: "red", expiry: "2026-08-31", plots: 10 },
     ],
     contracts: [
       { id: "HT-2024-0081", owner: "禾润农业", plot: "BH-0012、BH-0013", area: 2180, sign: "2024-01-08", expiry: "2028-12-31", days: 1200, status: "green", payment: "正常履约", amount: 726000, paid: 726000 },
@@ -67,6 +82,111 @@
   const statusText = { green: "正常", yellow: "提醒", red: "预警", cyan: "处理中" };
   const statusTag = (status, text = statusText[status] || status) => `<span class="status-tag ${status}">${escapeHtml(text)}</span>`;
   const demoToday = new Date("2026-09-18T00:00:00");
+
+  function activeCrops() {
+    return state.crops.filter((crop) => crop.enabled);
+  }
+
+  function cropOptionList() {
+    return activeCrops().map((crop) => `<option value="${escapeHtml(crop.name)}">${escapeHtml(crop.name)}</option>`).join("");
+  }
+
+  function cropInfo(name) {
+    return state.crops.find((crop) => crop.name === name) || { name: name || "未设置", category: "未分类", season: "—", cycle: "—", unit: "亩", description: "待补充" };
+  }
+
+  function parcelFeature(parcelId) {
+    return state.parcels.find((feature) => feature.properties?.parcelId === parcelId) || null;
+  }
+
+  function geometryRings(feature) {
+    const geometry = feature?.geometry || {};
+    if (geometry.type === "Polygon") return geometry.coordinates || [];
+    if (geometry.type === "MultiPolygon") return (geometry.coordinates || []).flat(1);
+    return [];
+  }
+
+  function ringCenter(ring) {
+    if (!ring?.length) return null;
+    let area = 0;
+    let x = 0;
+    let y = 0;
+    for (let index = 0; index < ring.length - 1; index += 1) {
+      const [x1, y1] = ring[index];
+      const [x2, y2] = ring[index + 1];
+      const cross = x1 * y2 - x2 * y1;
+      area += cross;
+      x += (x1 + x2) * cross;
+      y += (y1 + y2) * cross;
+    }
+    if (Math.abs(area) < 1e-12) {
+      const xs = ring.map((point) => point[0]);
+      const ys = ring.map((point) => point[1]);
+      return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    }
+    return [x / (3 * area), y / (3 * area)];
+  }
+
+  function pointInRing(point, ring) {
+    let inside = false;
+    for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+      const [xi, yi] = ring[index];
+      const [xj, yj] = ring[previous];
+      const intersects = ((yi > point[1]) !== (yj > point[1])) && (point[0] < (xj - xi) * (point[1] - yi) / ((yj - yi) || 1e-12) + xi);
+      if (intersects) inside = !inside;
+    }
+    return inside;
+  }
+
+  function featureCenter(feature) {
+    const rings = geometryRings(feature).filter((ring) => ring?.length > 2);
+    if (!rings.length) return [C.project.center[1], C.project.center[0]];
+    const ring = rings.sort((a, b) => b.length - a.length)[0];
+    let center = ringCenter(ring) || ring[0];
+    if (!pointInRing(center, ring)) {
+      const xs = ring.map((point) => point[0]);
+      const ys = ring.map((point) => point[1]);
+      center = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    }
+    if (pointInRing(center, ring)) return [center[0], center[1]];
+    const xs = ring.map((point) => point[0]);
+    const ys = ring.map((point) => point[1]);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    for (let xStep = 1; xStep < 12; xStep += 1) {
+      for (let yStep = 1; yStep < 12; yStep += 1) {
+        const candidate = [minX + (maxX - minX) * xStep / 12, minY + (maxY - minY) * yStep / 12];
+        if (pointInRing(candidate, ring)) return candidate;
+      }
+    }
+    return [ring[0][0], ring[0][1]];
+  }
+
+  function plantingInfo(feature, owner) {
+    const parcelId = feature?.properties?.parcelId || "BH-0000";
+    const number = Number(String(parcelId).replace(/\D/g, "")) || 1;
+    const crop = cropInfo(owner.crop);
+    const stages = ["返青期", "分蘖期", "拔节期", "抽穗期", "灌浆期", "采收期"];
+    const dates = ["2026-03-18", "2026-04-06", "2026-04-22", "2026-05-12", "2026-06-02", "2026-06-18"];
+    const stageIndex = (number + crop.name.length) % stages.length;
+    const plantingDate = dates[(number + crop.name.length) % dates.length];
+    const expectedHarvest = crop.name === "晚稻" ? "2026-11-05" : crop.name === "早稻" ? "2026-07-18" : crop.name === "蔬菜" ? "2026-10-12" : "2026-12-20";
+    const irrigation = number % 3 === 0 ? "泵站智能灌溉" : number % 3 === 1 ? "沟渠引水" : "滴灌/管灌";
+    const soilType = number % 2 === 0 ? "水稻土" : "潮土";
+    return {
+      category: crop.category,
+      variety: crop.name === "晚稻" ? "甬优1540" : crop.name === "早稻" ? "中早39" : crop.name === "蔬菜" ? "青梗菜 / 茄果类" : `${crop.name}示范品种`,
+      stage: stages[stageIndex],
+      plantingDate,
+      expectedHarvest,
+      irrigation,
+      soilType,
+      expectedYield: `${(Number(feature?.properties?.areaMu || 42) * (crop.name === "水产养殖" ? 0.42 : 0.58)).toFixed(1)} 吨`,
+      lastInspection: `2026-09-${String(8 + (number % 10)).padStart(2, "0")} 09:${String(number % 50).padStart(2, "0")}`,
+    };
+  }
 
   function ownerShortName(owner) {
     return owner.name.replace(/^绍兴市滨海新区|^绍兴市越城区|^浙江/, "").replace(/有限公司|专业合作社|家庭农场|服务中心/g, "");
@@ -133,6 +253,29 @@
     return { owner, contract: contractForOwner(owner.id) };
   }
 
+  function enrichParcelProperties(features) {
+    (features || []).forEach((feature) => {
+      const parcelId = feature.properties?.parcelId;
+      if (!parcelId) return;
+      const owner = relationForParcel(parcelId).owner;
+      const crop = cropInfo(owner.crop);
+      const planting = plantingInfo(feature, owner);
+      feature.properties = {
+        ...feature.properties,
+        crop: crop.name,
+        cropCategory: planting.category,
+        cropVariety: planting.variety,
+        plantingStage: planting.stage,
+        plantingDate: planting.plantingDate,
+        expectedHarvest: planting.expectedHarvest,
+        irrigation: planting.irrigation,
+        soilType: planting.soilType,
+        expectedYield: planting.expectedYield,
+        lastInspection: planting.lastInspection,
+      };
+    });
+  }
+
   function contractLabel(status) {
     return status === "green" ? "正常履约" : status === "yellow" ? "到期提醒" : "高危预警";
   }
@@ -145,9 +288,9 @@
       const maxOk = filter.maxArea === "" || area <= Number(filter.maxArea);
       const query = String(filter.search || "").trim().toLowerCase();
       return (filter.region === "all" || item.region === filter.region) &&
-        (filter.crop === "all" || item.crop === filter.crop) &&
+        (filter.crop === "all" || item.crop.toLowerCase().includes(String(filter.crop).toLowerCase())) &&
         (filter.status === "all" || item.contractStatus === filter.status) && minOk && maxOk &&
-        (!query || item.name.toLowerCase().includes(query) || item.crop.toLowerCase().includes(query) || item.id.toLowerCase().includes(query));
+        (!query || item.name.toLowerCase().includes(query) || item.contact.toLowerCase().includes(query) || item.crop.toLowerCase().includes(query) || item.id.toLowerCase().includes(query));
     });
   }
 
@@ -229,13 +372,69 @@
     return `<div class="alert-row"${action} style="${alert.id ? "cursor:pointer" : ""}"><i class="alert-mark ${alert.level}"></i><div><div class="alert-title">${escapeHtml(alert.title || "未命名事件")}</div><div class="alert-meta">${escapeHtml(alert.zone || "未知区域")} · ${escapeHtml(alert.image || "无附件")}${alert.status ? ` · ${escapeHtml(alert.status)}` : ""}</div></div><span class="alert-time">${escapeHtml(alert.time || "")}</span></div>`;
   }
 
+  function filteredCrops() {
+    const filter = state.cropFilter;
+    const keyword = String(filter.keyword || "").trim().toLowerCase();
+    return state.crops.filter((crop) => (!keyword || `${crop.name} ${crop.category} ${crop.description}`.toLowerCase().includes(keyword)) && (filter.category === "all" || crop.category === filter.category) && (filter.enabled === "all" || String(crop.enabled) === filter.enabled));
+  }
+
+  function cropRows(rows) {
+    if (!rows.length) return `<tr><td colspan="8" style="text-align:center;color:var(--muted-2);padding:32px">未找到符合条件的作物</td></tr>`;
+    return rows.map((crop) => `<tr><td>${escapeHtml(crop.id)}</td><td><strong>${escapeHtml(crop.name)}</strong></td><td>${escapeHtml(crop.category)}</td><td>${escapeHtml(crop.season)}</td><td>${escapeHtml(crop.cycle)}</td><td>${state.owners.filter((owner) => owner.crop === crop.name).length} 户</td><td>${statusTag(crop.enabled ? "green" : "yellow", crop.enabled ? "启用" : "停用")}</td><td><button class="btn ghost" data-action="toggleCrop" data-id="${crop.id}">${crop.enabled ? "停用" : "启用"}</button></td></tr>`).join("");
+  }
+
+  function renderCrops() {
+    setBreadcrumb("作物维护", "基础数据");
+    const rows = filteredCrops();
+    const categories = [...new Set(state.crops.map((crop) => crop.category))];
+    const used = state.owners.filter((owner) => owner.crop).length;
+    el("#content").innerHTML = `${pageHeader("作物类型维护", "统一维护主栽作物、作物分类和生长周期，为大户档案、地块种植信息和统计分析提供基础数据。", `<button class="btn" data-action="resetCrops">重置筛选</button><button class="btn primary" data-action="addCrop">＋ 新增作物</button>`)}<div class="stat-row"><div class="simple-stat"><span>作物类型</span><strong>${state.crops.length}<em>种</em></strong></div><div class="simple-stat"><span>启用类型</span><strong style="color:var(--green)">${activeCrops().length}<em>种</em></strong></div><div class="simple-stat"><span>已使用类型</span><strong>${new Set(state.owners.map((owner) => owner.crop)).size}<em>种</em></strong></div><div class="simple-stat"><span>档案种植主体</span><strong>${used}<em>户</em></strong></div></div><div class="filter-bar"><span class="filter-label">作物查询</span><input id="cropKeyword" class="input-control" placeholder="输入作物名称或关键词" value="${escapeHtml(state.cropFilter.keyword)}" /><select id="cropCategory" class="select-control"><option value="all">全部分类</option>${categories.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}</select><select id="cropEnabled" class="select-control"><option value="all">全部状态</option><option value="true">启用</option><option value="false">停用</option></select><button class="btn primary" data-action="filterCrops">查询</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>编码</th><th>作物名称</th><th>作物分类</th><th>适种季节</th><th>生长周期</th><th>关联主体</th><th>状态</th><th>操作</th></tr></thead><tbody id="cropsTable">${cropRows(rows)}</tbody></table><div class="pager"><span>当前显示 ${rows.length} / ${state.crops.length} 种作物</span><span>作物类型将同步到大户档案和统计分析</span></div></div>`;
+    el("#cropCategory").value = state.cropFilter.category;
+    el("#cropEnabled").value = state.cropFilter.enabled;
+  }
+
+  function renderAnalytics() {
+    setBreadcrumb("统计分析", "业务分析");
+    const totalArea = state.owners.reduce((sum, owner) => sum + Number(owner.area || 0), 0);
+    const regions = ["江滨农场一片区", "江滨农场二片区", "江滨农场三片区", "滨海产业园区"];
+    const regionRows = regions.map((region) => {
+      const owners = state.owners.filter((owner) => owner.region === region);
+      return { region, owners: owners.length, area: owners.reduce((sum, owner) => sum + Number(owner.area || 0), 0) };
+    });
+    const cropRowsData = state.crops.map((crop) => {
+      const owners = state.owners.filter((owner) => owner.crop === crop.name);
+      const area = owners.reduce((sum, owner) => sum + Number(owner.area || 0), 0);
+      return { name: crop.name, area, owners: owners.length, percent: totalArea ? area / totalArea * 100 : 0 };
+    }).filter((item) => item.area > 0).sort((a, b) => b.area - a.area);
+    const buckets = [
+      { label: "已逾期", min: -Infinity, max: -1, tone: "red" },
+      { label: "0-30 天", min: 0, max: 30, tone: "red" },
+      { label: "31-90 天", min: 31, max: 90, tone: "yellow" },
+      { label: "91-180 天", min: 91, max: 180, tone: "cyan" },
+      { label: "180 天以上", min: 181, max: Infinity, tone: "green" },
+    ];
+    const expiryRows = buckets.map((bucket) => ({ ...bucket, count: state.contracts.filter((contract) => contract.days >= bucket.min && contract.days <= bucket.max).length }));
+    const maxRegionArea = Math.max(1, ...regionRows.map((item) => item.area));
+    const maxExpiry = Math.max(1, ...expiryRows.map((item) => item.count));
+    el("#content").innerHTML = `
+      ${pageHeader("统计分析", "按行政区域、作物类型和合同期限自动汇总流转经营数据，统计结果与档案和合同状态联动。", `<button class="btn" data-view="owners">查看大户档案</button><button class="btn primary" data-view="map">在一张图查看</button>`)}
+      <div class="stat-row"><div class="simple-stat"><span>区域流转户数</span><strong>${state.owners.length}<em>户</em></strong></div><div class="simple-stat"><span>总流转面积</span><strong>${totalArea.toLocaleString()}<em>亩</em></strong></div><div class="simple-stat"><span>主栽作物类型</span><strong>${cropRowsData.length}<em>种</em></strong></div><div class="simple-stat"><span>合同到期/逾期</span><strong style="color:var(--yellow)">${state.contracts.filter((contract) => contract.days <= 90).length}<em>份</em></strong></div></div>
+      <div class="panel-grid">
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">区域流转户数与面积</div><div class="panel-sub">按主体所属行政区域统计</div></div></div><div class="panel-body"><div class="table-wrap" style="border:0;background:transparent"><table class="data-table"><thead><tr><th>区域</th><th>流转户数</th><th>总面积（亩）</th><th>面积占比</th></tr></thead><tbody>${regionRows.map((item) => `<tr><td>${escapeHtml(item.region)}</td><td>${item.owners} 户</td><td>${item.area.toLocaleString()}</td><td>${totalArea ? (item.area / totalArea * 100).toFixed(1) : "0.0"}%</td></tr>`).join("")}</tbody></table></div></div></div>
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">作物种植分布占比</div><div class="panel-sub">以流转档案面积作为统计口径</div></div></div><div class="panel-body">${cropRowsData.map((item) => `<div class="progress-row"><div class="progress-row-top"><span>${escapeHtml(item.name)} <small>${item.owners} 户 · ${item.area.toLocaleString()} 亩</small></span><b style="color:var(--cyan)">${item.percent.toFixed(1)}%</b></div><div class="progress-line"><i style="width:${Math.max(2, item.percent)}%;background:linear-gradient(90deg,#35c7e8,#72e1df)"></i></div></div>`).join("") || `<div class="empty-chart">暂无作物种植数据</div>`}</div></div>
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">合同到期时段分布</div><div class="panel-sub">按当前规则计算剩余天数</div></div></div><div class="panel-body"><div class="bars analytics-bars">${expiryRows.map((item) => `<div class="bar-group"><span class="bar-value">${item.count} 份</span><div class="bar-stack"><i class="bar ${item.tone}" style="height:${Math.max(8, item.count / maxExpiry * 100)}%"></i></div><span class="bar-label">${item.label}</span></div>`).join("")}</div></div></div>
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">区域面积对比</div><div class="panel-sub">用于快速识别重点经营区域</div></div></div><div class="panel-body">${regionRows.map((item) => `<div class="progress-row"><div class="progress-row-top"><span>${escapeHtml(item.region)} <small>${item.owners} 户</small></span><b>${item.area.toLocaleString()} 亩</b></div><div class="progress-line"><i style="width:${Math.max(2, item.area / maxRegionArea * 100)}%;background:linear-gradient(90deg,#42d5a2,#35c7e8)"></i></div></div>`).join("")}</div></div>
+      </div>`;
+  }
+
   function renderMapView() {
     setBreadcrumb("农田一张图");
     el("#content").innerHTML = `
       ${pageHeader("农田一张图", "以地块图斑为业务索引，联动查看流转主体、合同、作物、设备和告警。", `<button class="btn ghost" data-action="locateProject">⌖ 定位项目区</button><button class="btn primary" data-action="exportMap">导出当前视图</button>`)}
-      <div class="filter-bar"><span class="filter-label">快速定位</span><input class="input-control" id="mapSearch" placeholder="输入农户姓名或地块编号" /><select class="select-control" id="mapLayerFilter"><option value="all">全部图层</option><option value="green">正常地块</option><option value="yellow">合同提醒</option><option value="red">风险预警</option></select><button class="btn primary" data-action="mapSearch">搜索定位</button><span style="margin-left:auto;color:var(--muted-2);font-size:11px">数据更新时间：2026-09-18 09:30</span></div>
-      <div class="map-shell"><div id="fullMap"></div><div class="map-toolbar"><button class="btn" data-action="toggleSatellite">▧ 切换底图</button><button class="btn" data-action="toggleBoundary">▢ 行政区划</button><button class="btn" data-action="toggleCameraLayer">▣ 视频点位</button><button class="btn" data-action="toggleAlertLayer">! 风险告警</button></div><div class="map-side-card hidden" id="mapDetailCard"></div><div class="map-key"><span class="legend-item"><i class="legend-dot green"></i>正常</span><span class="legend-item"><i class="legend-dot yellow"></i>合同提醒</span><span class="legend-item"><i class="legend-dot red"></i>风险预警</span><span class="legend-item"><i class="legend-dot" style="background:#2b9bc1"></i>视频点位</span></div></div>`;
+      <div class="filter-bar"><span class="filter-label">快速定位</span><input class="input-control" id="mapSearch" placeholder="输入农户姓名、联系人或地块编号" /><select class="select-control" id="mapLayerFilter"><option value="all">全部图层</option><option value="green">正常地块</option><option value="yellow">合同提醒</option><option value="red">风险预警</option></select><select class="select-control" id="mapBaseMode"><option value="terrain">地形图</option><option value="vector">矢量道路/建筑</option><option value="satellite">影像图</option></select><button class="btn primary" data-action="mapSearch">搜索定位</button><span style="margin-left:auto;color:var(--muted-2);font-size:11px">地形图展示地形水系；道路建筑请切换矢量，真实地表请切换影像</span></div>
+      <div class="map-shell"><div id="fullMap"></div><div class="map-toolbar"><button class="btn" data-action="toggleSatellite">▧ 循环切换底图</button><button class="btn" data-action="toggleBoundary">▢ 行政区划</button><button class="btn" data-action="toggleCameraLayer">▣ 视频点位</button><button class="btn" data-action="toggleAlertLayer">! 风险告警</button></div><div class="map-side-card hidden" id="mapDetailCard"></div><div class="map-key"><span class="legend-item"><i class="legend-dot green"></i>正常</span><span class="legend-item"><i class="legend-dot yellow"></i>合同提醒</span><span class="legend-item"><i class="legend-dot red"></i>风险预警</span><span class="legend-item"><i class="legend-dot" style="background:#2b9bc1"></i>视频点位</span><span class="legend-item"><i class="legend-dot red"></i>风险告警</span><span class="legend-item"><i class="boundary-swatch"></i>越城区行政边界</span></div></div>`;
     initMap("fullMap", false);
+    el("#mapBaseMode").value = state.baseMode || C.project.defaultBase;
   }
 
   function renderOwners() {
@@ -246,12 +445,12 @@
     const topCrop = Object.entries(cropCount).sort((a, b) => b[1] - a[1])[0]?.[0] || "—";
     const riskCount = rows.filter((item) => item.contractStatus !== "green").length;
     el("#content").innerHTML = `
-      ${pageHeader("流转大户管理", "统一建立流转主体数字档案，关联合同、地块、作物和监管设备。", `<button class="btn" data-action="downloadTemplate">⇩ 下载模板</button><button class="btn" data-action="exportOwners">⇩ 导出当前结果</button><button class="btn" data-action="importExcel">⇧ 导入 Excel</button><input id="ownerImportFile" type="file" accept=".csv,.txt,.xlsx" style="display:none" /><button class="btn primary" data-action="addOwner">＋ 新增档案</button>`)}
+      ${pageHeader("流转大户管理", "统一建立流转主体数字档案，关联合同、地块、作物和监管设备。", `<button class="btn ghost" data-view="analytics">▥ 统计分析</button><button class="btn" data-action="downloadTemplate">⇩ 下载模板</button><button class="btn" data-action="exportOwners">⇩ 导出当前结果</button><button class="btn" data-action="importExcel">⇧ 导入 Excel</button><input id="ownerImportFile" type="file" accept=".csv,.txt,.xlsx" style="display:none" /><button class="btn primary" data-action="addOwner">＋ 新增档案</button>`)}
       <div class="stat-row"><div class="simple-stat"><span>筛选主体数</span><strong>${rows.length}<em>户</em></strong></div><div class="simple-stat"><span>筛选流转面积</span><strong>${totalArea.toLocaleString()}<em>亩</em></strong></div><div class="simple-stat"><span>主体最多作物</span><strong>${escapeHtml(topCrop)}</strong></div><div class="simple-stat"><span>合同风险户数</span><strong style="color:var(--yellow)">${riskCount}<em>户</em></strong></div></div>
-      <div class="filter-bar"><span class="filter-label">组合筛选</span><select class="select-control" id="ownerRegion"><option value="all">全部区域</option><option value="江滨农场一片区">江滨农场一片区</option><option value="江滨农场二片区">江滨农场二片区</option><option value="江滨农场三片区">江滨农场三片区</option><option value="滨海产业园区">滨海产业园区</option></select><select class="select-control" id="ownerCrop"><option value="all">全部作物</option><option>晚稻</option><option>早稻</option><option>蔬菜</option><option>果蔬</option><option>水产养殖</option></select><select class="select-control" id="ownerStatus"><option value="all">全部合同状态</option><option value="green">正常履约</option><option value="yellow">即将到期</option><option value="red">已到期/高危</option></select><input class="input-control" id="ownerMinArea" type="number" min="0" placeholder="最小面积(亩)" /><input class="input-control" id="ownerMaxArea" type="number" min="0" placeholder="最大面积(亩)" /><input class="input-control" id="ownerSearch" placeholder="搜索主体、编号或作物" /><button class="btn primary" data-action="filterOwners">查询</button><button class="btn ghost" data-action="resetOwners">重置</button></div>
+      <div class="filter-bar"><span class="filter-label">组合筛选</span><select class="select-control" id="ownerRegion"><option value="all">全部区域</option><option value="江滨农场一片区">江滨农场一片区</option><option value="江滨农场二片区">江滨农场二片区</option><option value="江滨农场三片区">江滨农场三片区</option><option value="滨海产业园区">滨海产业园区</option></select><input class="input-control" id="ownerCrop" list="ownerCropOptions" placeholder="输入或选择作物类型" /><datalist id="ownerCropOptions">${cropOptionList()}</datalist><select class="select-control" id="ownerStatus"><option value="all">全部合同状态</option><option value="green">正常履约</option><option value="yellow">即将到期</option><option value="red">已到期/高危</option></select><input class="input-control" id="ownerMinArea" type="number" min="0" placeholder="最小面积(亩)" /><input class="input-control" id="ownerMaxArea" type="number" min="0" placeholder="最大面积(亩)" /><input class="input-control" id="ownerSearch" placeholder="输入大户姓名、联系人或主体名称" /><button class="btn primary" data-action="filterOwners">查询</button><button class="btn ghost" data-action="resetOwners">重置</button></div>
       <div class="table-wrap"><table class="data-table"><thead><tr><th>流转主体</th><th>联系人</th><th>所属区域</th><th>流转面积</th><th>主栽作物</th><th>合同状态</th><th>合同到期</th><th>操作</th></tr></thead><tbody id="ownersTable">${ownerRows(rows)}</tbody></table><div class="pager"><span>当前筛选 ${rows.length} 户 / 全部档案 ${state.owners.length} 户</span><span>统计结果随筛选条件实时更新</span></div></div>`;
     el("#ownerRegion").value = state.ownerFilter.region;
-    el("#ownerCrop").value = state.ownerFilter.crop;
+    el("#ownerCrop").value = state.ownerFilter.crop === "all" ? "" : state.ownerFilter.crop;
     el("#ownerStatus").value = state.ownerFilter.status;
     el("#ownerMinArea").value = state.ownerFilter.minArea;
     el("#ownerMaxArea").value = state.ownerFilter.maxArea;
@@ -368,7 +567,7 @@
   function render(view = state.view) {
     state.view = view;
     all(".nav-item[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
-    const renderers = { dashboard: renderDashboard, map: renderMapView, owners: renderOwners, contracts: renderContracts, meters: renderMeters, drone: renderDrone, video: renderVideo, weather: renderWeather, trace: renderTrace, broadcast: renderBroadcast, system: renderSystem };
+    const renderers = { dashboard: renderDashboard, map: renderMapView, owners: renderOwners, crops: renderCrops, analytics: renderAnalytics, contracts: renderContracts, meters: renderMeters, drone: renderDrone, video: renderVideo, weather: renderWeather, trace: renderTrace, broadcast: renderBroadcast, system: renderSystem };
     (renderers[view] || renderDashboard)();
   }
 
@@ -385,13 +584,15 @@
     }
     const map = L.map(containerId, { zoomControl: !compact, attributionControl: true, preferCanvas: true }).setView(C.project.center, compact ? C.project.zoom - 1 : C.project.zoom);
     state.mapInstances[containerId] = map;
-    const terrainMode = C.project.defaultBase === "terrain";
-    const base = L.tileLayer(terrainMode ? C.tianditu.terrain : C.tianditu.vector, { subdomains: "0123456", maxZoom: 18, attribution: "© 天地图" });
-    const label = L.tileLayer(terrainMode ? C.tianditu.terrainLabel : C.tianditu.vectorLabel, { subdomains: "0123456", maxZoom: 18, opacity: .9 });
+    const mode = state.baseMode || C.project.defaultBase;
+    const baseUrl = mode === "satellite" ? C.tianditu.image : mode === "terrain" ? C.tianditu.terrain : C.tianditu.vector;
+    const labelUrl = mode === "satellite" ? C.tianditu.imageLabel : mode === "terrain" ? C.tianditu.terrainLabel : C.tianditu.vectorLabel;
+    const base = L.tileLayer(baseUrl, { subdomains: "0123456", maxZoom: 18, attribution: "© 天地图" });
+    const label = L.tileLayer(labelUrl, { subdomains: "0123456", maxZoom: 18, opacity: .9 });
     base.addTo(map);
     label.addTo(map);
     state.tileLayers = state.tileLayers || {};
-    state.tileLayers[containerId] = { base, label, mode: terrainMode ? "terrain" : "vector" };
+    state.tileLayers[containerId] = { base, label, mode };
     if (!compact) map.on("click", () => hideMapDetail());
     await loadMapData(map, containerId, compact);
     setTimeout(() => map.invalidateSize(), 120);
@@ -403,15 +604,18 @@
     const existing = state.fallbackMaps[containerId];
     if (existing) existing.root.remove();
     let features = state.parcels;
+    if (features.length) enrichParcelProperties(features);
     if (!features.length) {
       try {
         const response = await fetch(C.data.parcels, { cache: "no-store" });
         const geojson = await response.json();
         features = geojson.features || [];
         state.parcels = features;
+        enrichParcelProperties(state.parcels);
       } catch (error) {
         features = window.EMBEDDED_DATA?.parcels?.features || makeFallbackParcels().features;
         state.parcels = features;
+        enrichParcelProperties(state.parcels);
       }
     }
     const root = document.createElement("div");
@@ -419,6 +623,8 @@
     root.innerHTML = `<svg viewBox="0 0 1000 650" preserveAspectRatio="none" role="img" aria-label="绍兴滨海新区农田地块分布图"><path class="fallback-water" d="M0,0 H1000 V92 C866,132 750,79 615,119 C474,162 344,88 206,118 C111,139 62,120 0,145 Z"></path><path class="fallback-road" d="M-20,522 C205,458 355,486 504,416 S783,303 1020,350"></path><path class="fallback-road" d="M88,-12 C165,148 124,278 236,398 S466,552 526,675"></path><path class="fallback-road" d="M-25,270 C155,246 259,284 405,236 S695,153 1022,188"></path><path class="fallback-boundary" d="M132,88 L814,60 L944,198 L878,555 L604,608 L192,548 L68,360 Z"></path><text class="fallback-label" x="80" y="47">绍兴市越城区 · 滨海新区</text><text class="fallback-label" x="750" y="106">钱塘江南岸</text><g class="fallback-admin-boundary"></g><g class="fallback-parcels"></g><g class="fallback-markers"></g></svg>`;
     node.innerHTML = "";
     node.appendChild(root);
+    root.dataset.baseMode = C.project.defaultBase;
+    root.classList.toggle("satellite", C.project.defaultBase === "satellite");
     root.classList.toggle("terrain", C.project.defaultBase === "terrain");
     createTdtTiles(root, C.project.defaultBase);
     const svg = root.querySelector("svg");
@@ -454,16 +660,22 @@
     });
     if (!compact) {
       state.cameras.forEach((camera, index) => {
-        const [x, y] = project([C.project.center[1] - .032 + index * .021, C.project.center[0] - .018 + (index % 2) * .026 + index * .001]);
-        const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        marker.setAttribute("cx", x.toFixed(2)); marker.setAttribute("cy", y.toFixed(2)); marker.setAttribute("r", "5.5"); marker.setAttribute("fill", "#2b9bc1"); marker.setAttribute("class", "fallback-marker fallback-camera-marker"); marker.dataset.action = "cameraDetail"; marker.dataset.id = camera.id;
+        const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
+        const [x, y] = project(featureCenter(feature));
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        marker.setAttribute("class", "fallback-marker fallback-camera-marker"); marker.dataset.action = "cameraDetail"; marker.dataset.id = camera.id;
+        marker.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/camera-marker.png" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
         marker.addEventListener("click", (event) => { event.stopPropagation(); openCamera(camera.id); });
         markerGroup.appendChild(marker);
       });
       state.alerts.filter((item) => item.level === "red" || item.type === "渣土倾倒").forEach((alert, index) => {
-        const [x, y] = project([alert.lng || C.project.center[1] + .012 + index * .018, alert.lat || C.project.center[0] + .014 - index * .012]);
-        const marker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        marker.setAttribute("cx", x.toFixed(2)); marker.setAttribute("cy", y.toFixed(2)); marker.setAttribute("r", "6"); marker.setAttribute("fill", "#ef6674"); marker.setAttribute("class", "fallback-marker fallback-alert-marker");
+        const feature = parcelFeature(alert.parcelId) || state.parcels[(index + 4) % Math.max(1, state.parcels.length)];
+        const [x, y] = project(featureCenter(feature));
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        marker.setAttribute("class", "fallback-marker fallback-alert-marker");
+        marker.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/alert-marker.png" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
         marker.addEventListener("click", (event) => { event.stopPropagation(); alertDetail(alert.id); });
         markerGroup.appendChild(marker);
       });
@@ -545,12 +757,14 @@
       const response = await fetch(C.data.parcels, { cache: "no-store" });
       const geojson = await response.json();
       state.parcels = geojson.features || [];
+      enrichParcelProperties(state.parcels);
       state.parcelDataLoaded = true;
       drawParcelLayer(map, containerId, compact, geojson);
       if (!compact) addMapLayers(map);
     } catch (error) {
       const fallback = window.EMBEDDED_DATA?.parcels || makeFallbackParcels();
       state.parcels = fallback.features;
+      enrichParcelProperties(state.parcels);
       drawParcelLayer(map, containerId, compact, fallback);
       if (!compact) addMapLayers(map);
       showToast("本地地块数据已加载，底图服务稍后重试", "warn");
@@ -587,6 +801,19 @@
     return { color: colors[status], weight: 0.65, opacity: .9, fillColor: colors[status], fillOpacity: .32, className: "parcel-shape" };
   }
 
+  function highlightParcelLayer(layer) {
+    if (state.highlightedParcelLayer && state.highlightedParcelLayer !== layer) {
+      const previous = state.highlightedParcelLayer;
+      previous.setStyle(parcelStyle(previous.feature, state.parcels.indexOf(previous.feature)));
+      if (previous._path) previous._path.classList.remove("selected");
+    }
+    state.highlightedParcelLayer = layer;
+    if (!layer) return;
+    layer.setStyle({ color: "#dffcff", weight: 3.2, opacity: 1, fillColor: "#55d8e8", fillOpacity: .68 });
+    if (layer.bringToFront) layer.bringToFront();
+    if (layer._path) layer._path.classList.add("selected");
+  }
+
   function drawParcelLayer(map, containerId, compact, geojson) {
     if (state.parcelLayer) state.parcelLayer.remove();
     state.parcelLayer = L.geoJSON(geojson, {
@@ -599,6 +826,7 @@
         layer.bindTooltip(`${id} · ${owner.name}`, { sticky: true, direction: "top" });
         layer.on("click", (event) => {
           L.DomEvent.stopPropagation(event);
+          highlightParcelLayer(layer);
           showParcelDetail(feature, owner, status, containerId, compact);
           map.fitBounds(layer.getBounds(), { padding: [compact ? 3 : 28, compact ? 3 : 28], maxZoom: compact ? 14 : 16 });
         });
@@ -613,6 +841,7 @@
     const contract = relation.contract || contractForOwner(owner.id);
     const camera = state.cameras.find((item) => item.plot === p.parcelId) || state.cameras.find((item) => item.owner === ownerShortName(owner));
     const meter = state.meters.find((item) => item.plot === p.parcelId);
+    const planting = plantingInfo(feature, owner);
     state.selectedParcel = p.parcelId;
     if (compact) {
       const map = state.mapInstances[containerId];
@@ -622,7 +851,7 @@
     const card = el("#mapDetailCard");
     if (!card) return;
     card.classList.remove("hidden");
-    card.innerHTML = `<div class="map-side-head"><strong>${p.parcelId} · 地块详情</strong><button class="close-btn" data-action="closeMapDetail">×</button></div><div class="map-side-content"><div class="info-pair"><div class="info-tile"><span>流转面积</span><strong>${Number(p.areaMu || 42)}<small style="font-size:10px;color:var(--muted)"> 亩</small></strong></div><div class="info-tile"><span>风险状态</span><strong style="font-size:13px;color:var(--${status === "red" ? "red" : status === "yellow" ? "yellow" : "green"})">${contractLabel(status)}</strong></div></div><div class="detail-line"><span>流转主体</span><b>${escapeHtml(owner.name)}</b></div><div class="detail-line"><span>联系人</span><b>${escapeHtml(owner.contact)} · ${escapeHtml(owner.phone)}</b></div><div class="detail-line"><span>主栽作物</span><b>${escapeHtml(owner.crop)}</b></div><div class="detail-line"><span>关联合同</span><b>${contract?.id || "未关联"} · ${contract ? contractLabel(contract.status) : "—"}</b></div><div class="detail-line"><span>合同到期</span><b>${contract?.expiry || owner.expiry}</b></div><div class="detail-line"><span>关联摄像头</span><b style="color:var(--cyan)">${camera ? `${camera.id} · ${camera.online ? "在线" : "信号波动"}` : "未配置"}</b></div><div class="detail-line"><span>电表状态</span><b style="color:${meter?.status === "red" ? "var(--red)" : meter?.status === "yellow" ? "var(--yellow)" : "var(--green)"}">${meter ? meter.state : "未配置"}</b></div></div><div class="map-side-footer"><button class="btn primary" data-action="ownerDetail" data-id="${owner.id}">查看档案</button>${contract ? `<button class="btn" data-action="contractDetail" data-id="${contract.id}">查看合同</button>` : ""}<button class="btn" data-action="openVideoForParcel" data-id="${p.parcelId}">关联视频</button></div>`;
+      card.innerHTML = `<div class="map-side-head"><strong>${p.parcelId} · 地块详情</strong><button class="close-btn" data-action="closeMapDetail">×</button></div><div class="map-side-content"><div class="info-pair"><div class="info-tile"><span>流转面积</span><strong>${Number(p.areaMu || 42)}<small style="font-size:10px;color:var(--muted)"> 亩</small></strong></div><div class="info-tile"><span>风险状态</span><strong style="font-size:13px;color:var(--${status === "red" ? "red" : status === "yellow" ? "yellow" : "green"})">${contractLabel(status)}</strong></div></div><div class="detail-line"><span>流转主体</span><b>${escapeHtml(owner.name)}</b></div><div class="detail-line"><span>联系人</span><b>${escapeHtml(owner.contact)} · ${escapeHtml(owner.phone)}</b></div><div class="detail-line"><span>主栽作物</span><b>${escapeHtml(owner.crop)} · ${escapeHtml(planting.category)}</b></div><div class="detail-line"><span>种植品种</span><b>${escapeHtml(planting.variety)}</b></div><div class="detail-line"><span>种植阶段</span><b>${escapeHtml(planting.stage)}</b></div><div class="detail-line"><span>种植日期 / 预计采收</span><b>${planting.plantingDate} / ${planting.expectedHarvest}</b></div><div class="detail-line"><span>灌溉 / 土壤</span><b>${escapeHtml(planting.irrigation)} / ${escapeHtml(planting.soilType)}</b></div><div class="detail-line"><span>预计产量</span><b>${escapeHtml(planting.expectedYield)}</b></div><div class="detail-line"><span>最近巡检</span><b>${planting.lastInspection}</b></div><div class="detail-line"><span>关联合同</span><b>${contract?.id || "未关联"} · ${contract ? contractLabel(contract.status) : "—"}</b></div><div class="detail-line"><span>合同到期</span><b>${contract?.expiry || owner.expiry}</b></div><div class="detail-line"><span>关联摄像头</span><b style="color:var(--cyan)">${camera ? `${camera.id} · ${camera.online ? "在线" : "信号波动"}` : "未配置"}</b></div><div class="detail-line"><span>电表状态</span><b style="color:${meter?.status === "red" ? "var(--red)" : meter?.status === "yellow" ? "var(--yellow)" : "var(--green)"}">${meter ? meter.state : "未配置"}</b></div></div><div class="map-side-footer"><button class="btn primary" data-action="ownerDetail" data-id="${owner.id}">查看档案</button>${contract ? `<button class="btn" data-action="contractDetail" data-id="${contract.id}">查看合同</button>` : ""}<button class="btn" data-action="openVideoForParcel" data-id="${p.parcelId}">关联视频</button></div>`;
   }
 
   function hideMapDetail() {
@@ -633,25 +862,27 @@
   function addMapLayers(map) {
     const cameras = L.layerGroup();
     state.cameras.forEach((camera, index) => {
-      const lat = C.project.center[0] - .018 + (index % 2) * .026 + index * .001;
-      const lng = C.project.center[1] - .032 + index * .021;
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"></div>`, iconSize: [18, 18], iconAnchor: [9, 18] });
+      const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
+      const [lng, lat] = featureCenter(feature);
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" src="./assets/icons/camera-marker.png" alt="视频点位" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${camera.name}</strong><br>${camera.plot} · ${camera.owner}<br><span style="color:#62e5ad">● ${camera.online ? "在线" : "信号波动"}</span>`).addTo(cameras);
     });
     cameras.addTo(map);
     state.mapCameraLayer = cameras;
     const alerts = L.layerGroup();
     state.alerts.filter(a => a.level === "red" || a.type === "渣土倾倒").forEach((alert, index) => {
-      const lat = alert.lat || C.project.center[0] + .014 - index * .012;
-      const lng = alert.lng || C.project.center[1] + .012 + index * .018;
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"></div>`, iconSize: [18, 18], iconAnchor: [9, 18] });
+      const feature = parcelFeature(alert.parcelId) || state.parcels[(index + 4) % Math.max(1, state.parcels.length)];
+      const [lng, lat] = featureCenter(feature);
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" src="./assets/icons/alert-marker.png" alt="风险告警" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${alert.title}</strong><br>${alert.zone}<br>${alert.time}<br><button style="margin-top:7px" onclick="window.prototypeOpenAlert('${alert.id}')">查看告警详情</button>`).addTo(alerts);
     });
     alerts.addTo(map);
     state.mapAlertLayer = alerts;
     fetchBoundary(C.project.adminBoundaryUrl).then((data) => {
       if (!data) return;
-      state.adminLayer = L.geoJSON(data, { style: { color: "#72c6dc", weight: 1.3, dashArray: "5 5", fillOpacity: .02 } }).addTo(map);
+      state.adminHaloLayer = L.geoJSON(data, { style: { color: "#ffffff", weight: 8, opacity: .9, dashArray: "14 8", fillColor: "#ffffff", fillOpacity: .02, interactive: false } }).addTo(map);
+      state.adminLayer = L.geoJSON(data, { style: { color: "#ff4f21", weight: 5, opacity: 1, dashArray: "16 7", lineCap: "round", lineJoin: "round", fillColor: "#f5bd61", fillOpacity: .08 } }).addTo(map);
+      state.adminLayer.bringToFront();
     });
   }
 
@@ -668,30 +899,38 @@
     return null;
   }
 
+  function setBaseMode(mode, notify = true) {
+    const normalized = ["terrain", "vector", "satellite"].includes(mode) ? mode : "terrain";
+    state.baseMode = normalized;
+    const select = el("#mapBaseMode");
+    if (select) select.value = normalized;
+    const fallback = state.fallbackMaps.fullMap;
+    if (fallback && !state.mapInstances.fullMap) {
+      fallback.root.dataset.baseMode = normalized;
+      fallback.root.classList.toggle("satellite", normalized === "satellite");
+      fallback.root.classList.toggle("terrain", normalized === "terrain");
+      createTdtTiles(fallback.root, normalized);
+    }
+    const map = state.mapInstances.fullMap;
+    const layers = state.tileLayers?.fullMap;
+    if (map && layers && layers.mode !== normalized) {
+      map.removeLayer(layers.base);
+      map.removeLayer(layers.label);
+      const baseUrl = normalized === "satellite" ? C.tianditu.image : normalized === "terrain" ? C.tianditu.terrain : C.tianditu.vector;
+      const labelUrl = normalized === "satellite" ? C.tianditu.imageLabel : normalized === "terrain" ? C.tianditu.terrainLabel : C.tianditu.vectorLabel;
+      layers.base = L.tileLayer(baseUrl, { subdomains: "0123456", maxZoom: 18, attribution: "© 天地图" }).addTo(map);
+      layers.label = L.tileLayer(labelUrl, { subdomains: "0123456", maxZoom: 18, opacity: .9 }).addTo(map);
+      layers.mode = normalized;
+    }
+    if (notify) showToast(normalized === "satellite" ? "已切换至天地图影像图层" : normalized === "terrain" ? "已切换至天地图地形图层" : "已切换至天地图矢量图层");
+  }
+
   function toggleSatellite() {
     const map = state.mapInstances.fullMap;
     const fallback = state.fallbackMaps.fullMap;
-    if (!map && fallback) {
-      const current = fallback.root.dataset.baseMode || C.project.defaultBase;
-      const next = current === "vector" ? "satellite" : current === "terrain" ? "vector" : "terrain";
-      fallback.root.dataset.baseMode = next;
-      fallback.root.classList.toggle("satellite", next === "satellite");
-      fallback.root.classList.toggle("terrain", next === "terrain");
-      createTdtTiles(fallback.root, next);
-      showToast(next === "satellite" ? "已切换至天地图影像图层" : next === "terrain" ? "已切换至天地图地形图层" : "已切换回天地图矢量图层");
-      return;
-    }
-    if (!map) return;
-    const layers = state.tileLayers?.fullMap;
-    if (!layers) return;
-    const next = layers.mode === "vector" ? "satellite" : layers.mode === "terrain" ? "vector" : "terrain";
-    map.removeLayer(layers.base); map.removeLayer(layers.label);
-    const baseUrl = next === "satellite" ? C.tianditu.image : next === "terrain" ? C.tianditu.terrain : C.tianditu.vector;
-    const labelUrl = next === "satellite" ? C.tianditu.imageLabel : next === "terrain" ? C.tianditu.terrainLabel : C.tianditu.vectorLabel;
-    layers.base = L.tileLayer(baseUrl, { subdomains: "0123456", maxZoom: 18, attribution: "© 天地图" }).addTo(map);
-    layers.label = L.tileLayer(labelUrl, { subdomains: "0123456", maxZoom: 18, opacity: .9 }).addTo(map);
-    layers.mode = next;
-    showToast(next === "satellite" ? "已切换至天地图影像图层" : next === "terrain" ? "已切换至天地图地形图层" : "已切换回天地图矢量图层");
+    const current = state.tileLayers?.fullMap?.mode || fallback?.root.dataset.baseMode || state.baseMode || C.project.defaultBase;
+    const next = current === "terrain" ? "vector" : current === "vector" ? "satellite" : "terrain";
+    setBaseMode(next);
   }
 
   function toggleLayer(name) {
@@ -714,17 +953,17 @@
   function searchMap() {
     const query = (el("#mapSearch")?.value || "").trim().toLowerCase();
     if (!query) { showToast("请输入农户姓名或地块编号", "warn"); return; }
-    const owner = state.owners.find((item) => item.name.toLowerCase().includes(query) || item.id.toLowerCase() === query);
+    const owner = state.owners.find((item) => item.name.toLowerCase().includes(query) || item.contact.toLowerCase().includes(query) || item.id.toLowerCase() === query);
     const index = state.parcels.findIndex((feature) => feature.properties?.parcelId?.toLowerCase() === query || `bh-${String(state.parcels.indexOf(feature) + 1).padStart(4, "0")}` === query);
     const feature = index >= 0 ? state.parcels[index] : owner ? state.parcels.find((item) => relationForParcel(item.properties?.parcelId).owner.id === owner.id) || state.parcels[state.owners.indexOf(owner) * 14 % Math.max(1, state.parcels.length)] : null;
     const map = state.mapInstances.fullMap;
     const fallback = state.fallbackMaps.fullMap;
     if (!feature || (!map && !fallback)) { showToast("未找到匹配的农户或地块", "warn"); return; }
     const layer = findLayerForFeature(feature);
-    if (layer && map) { map.fitBounds(layer.getBounds(), { padding: [45, 45], maxZoom: 16 }); showParcelDetail(feature, owner || relationForParcel(feature.properties?.parcelId).owner, parcelStatus(state.parcels.indexOf(feature)), "fullMap", false); showToast("已定位到目标地块", "success"); return; }
+    if (layer && map) { highlightParcelLayer(layer); map.fitBounds(layer.getBounds(), { padding: [45, 45], maxZoom: 16 }); showParcelDetail(feature, owner || relationForParcel(feature.properties?.parcelId).owner, parcelStatus(state.parcels.indexOf(feature)), "fullMap", false); showToast("已定位到目标地块，图斑已高亮", "success"); return; }
     if (fallback) {
       const target = fallback.root.querySelector(`[data-parcel="${feature.properties?.parcelId}"]`);
-      if (target) { fallback.root.querySelectorAll(".fallback-parcel.selected").forEach((item) => item.classList.remove("selected")); target.classList.add("selected"); showParcelDetail(feature, owner || relationForParcel(feature.properties?.parcelId).owner, parcelStatus(state.parcels.indexOf(feature)), "fullMap", false); showToast("已定位到目标地块", "success"); }
+      if (target) { fallback.root.querySelectorAll(".fallback-parcel.selected").forEach((item) => item.classList.remove("selected")); target.classList.add("selected"); showParcelDetail(feature, owner || relationForParcel(feature.properties?.parcelId).owner, parcelStatus(state.parcels.indexOf(feature)), "fullMap", false); showToast("已定位到目标地块，图斑已高亮", "success"); }
     }
   }
 
@@ -873,6 +1112,24 @@
 
   window.prototypeOpenAlert = alertDetail;
 
+  function addCrop() {
+    openModal("新增作物类型", `<div class="info-pair"><div><label class="field-label" for="newCropName">作物名称</label><input id="newCropName" class="input-control" style="width:100%" placeholder="如：高粱" /></div><div><label class="field-label" for="newCropCategory">作物分类</label><input id="newCropCategory" class="input-control" style="width:100%" placeholder="如：粮食作物" /></div></div><div class="info-pair"><div><label class="field-label" for="newCropSeason">适种季节</label><input id="newCropSeason" class="input-control" style="width:100%" placeholder="如：春夏季" /></div><div><label class="field-label" for="newCropCycle">生长周期</label><input id="newCropCycle" class="input-control" style="width:100%" placeholder="如：100-120 天" /></div></div><label class="field-label" for="newCropDescription">备注</label><textarea id="newCropDescription" class="textarea" style="min-height:75px" placeholder="补充作物适用范围和管理说明"></textarea>`, `<button class="btn primary" data-action="saveCrop">保存作物</button><button class="btn" data-action="closeModal">取消</button>`);
+  }
+
+  function saveCrop() {
+    const name = el("#newCropName")?.value.trim();
+    const category = el("#newCropCategory")?.value.trim() || "未分类";
+    const season = el("#newCropSeason")?.value.trim() || "全年";
+    const cycle = el("#newCropCycle")?.value.trim() || "待补充";
+    const description = el("#newCropDescription")?.value.trim() || "待补充";
+    if (!name) { showToast("请填写作物名称", "warn"); return; }
+    if (state.crops.some((crop) => crop.name === name)) { showToast("该作物类型已存在", "warn"); return; }
+    state.crops.push({ id: `CP-${String(state.crops.length + 1).padStart(3, "0")}`, name, category, season, cycle, unit: "亩", enabled: true, description });
+    closeModal();
+    render("crops");
+    showToast(`作物类型“${name}”已新增`);
+  }
+
   function bindEvents() {
     document.addEventListener("click", (event) => {
       const target = event.target.closest("[data-view], [data-action]");
@@ -886,7 +1143,12 @@
       else if (action === "mapSearch") searchMap();
       else if (action === "locateProject") { state.mapInstances.fullMap?.setView(C.project.center, 13); showToast("已定位到绍兴市越城区滨海新区项目区"); }
       else if (action === "toggleSatellite") toggleSatellite();
-      else if (action === "toggleBoundary") { if (state.adminLayer && state.mapInstances.fullMap) { const map = state.mapInstances.fullMap; if (map.hasLayer(state.adminLayer)) { map.removeLayer(state.adminLayer); showToast("行政区划边界已隐藏"); } else { state.adminLayer.addTo(map); showToast("已加载开源行政区划边界"); } } else if (state.fallbackMaps.fullMap) { const boundary = state.fallbackMaps.fullMap.root.querySelector(".fallback-admin-boundary"); if (boundary) { const hidden = boundary.style.display === "none"; boundary.style.display = hidden ? "" : "none"; showToast(hidden ? "已显示绍兴市越城区开源行政区划边界" : "行政区划边界已隐藏"); } } else showToast("行政区划边界服务加载中", "warn"); }
+      else if (action === "addCrop") addCrop();
+      else if (action === "saveCrop") saveCrop();
+      else if (action === "filterCrops") { state.cropFilter = { keyword: el("#cropKeyword")?.value || "", category: el("#cropCategory")?.value || "all", enabled: el("#cropEnabled")?.value || "all" }; render("crops"); showToast(`作物筛选完成，共匹配 ${filteredCrops().length} 种`); }
+      else if (action === "resetCrops") { state.cropFilter = { keyword: "", category: "all", enabled: "all" }; render("crops"); }
+      else if (action === "toggleCrop") { const crop = state.crops.find((item) => item.id === target.dataset.id); if (crop) { if (crop.enabled && state.owners.some((owner) => owner.crop === crop.name)) { showToast("该作物已被档案使用，不能直接停用", "warn"); } else { crop.enabled = !crop.enabled; render("crops"); showToast(`${crop.name}已${crop.enabled ? "启用" : "停用"}`); } } }
+      else if (action === "toggleBoundary") { if (state.adminLayer && state.mapInstances.fullMap) { const map = state.mapInstances.fullMap; const visible = map.hasLayer(state.adminLayer); if (visible) { map.removeLayer(state.adminLayer); if (state.adminHaloLayer) map.removeLayer(state.adminHaloLayer); showToast("行政区划边界已隐藏"); } else { if (state.adminHaloLayer) state.adminHaloLayer.addTo(map); state.adminLayer.addTo(map); showToast("已显示加粗的绍兴市越城区行政区划边界"); } } else if (state.fallbackMaps.fullMap) { const boundary = state.fallbackMaps.fullMap.root.querySelector(".fallback-admin-boundary"); if (boundary) { const hidden = boundary.style.display === "none"; boundary.style.display = hidden ? "" : "none"; showToast(hidden ? "已显示加粗的绍兴市越城区行政区划边界" : "行政区划边界已隐藏"); } } else showToast("行政区划边界服务加载中", "warn"); }
       else if (action === "toggleCameraLayer") toggleLayer("camera");
       else if (action === "toggleAlertLayer") toggleLayer("alert");
       else if (action === "closeMapDetail") hideMapDetail();
@@ -904,8 +1166,8 @@
       else if (action === "confirmImport") { closeModal(); showToast("请先选择需要导入的 CSV/Excel 文件", "warn"); }
       else if (action === "downloadTemplate") { downloadText("流转大户档案导入模板.csv", "主体名称,联系人,联系电话,所属行政区域,经营地址,流转合同编号,合同签订时间,合同到期时间,流转地块面积,种植作物类型,经营主体性质\n"); showToast("导入模板已下载，已包含联系人列"); }
       else if (action === "exportOwners") exportOwners();
-      else if (action === "addOwner") { openModal("新增流转大户档案", `<div class="info-pair"><div><label class="field-label">主体名称</label><input id="newOwnerName" class="input-control" style="width:100%" value="" placeholder="请输入主体名称" /></div><div><label class="field-label">联系人</label><input id="newOwnerContact" class="input-control" style="width:100%" value="" placeholder="请输入联系人" /></div></div><div class="info-pair"><div><label class="field-label">联系电话</label><input id="newOwnerPhone" class="input-control" style="width:100%" value="" placeholder="请输入联系电话" /></div><div><label class="field-label">流转面积（亩）</label><input id="newOwnerArea" class="input-control" type="number" style="width:100%" value="" placeholder="请输入面积" /></div></div><div class="info-pair"><div><label class="field-label">所属区域</label><select id="newOwnerRegion" class="select-control" style="width:100%"><option>江滨农场一片区</option><option>江滨农场二片区</option><option>江滨农场三片区</option><option>滨海产业园区</option></select></div><div><label class="field-label">主栽作物</label><select id="newOwnerCrop" class="select-control" style="width:100%"><option>晚稻</option><option>早稻</option><option>蔬菜</option><option>果蔬</option></select></div></div>`, `<button class="btn primary" data-action="saveOwner">保存档案</button><button class="btn" data-action="closeModal">取消</button>`); }
-      else if (action === "saveOwner") { const name = el("#newOwnerName")?.value.trim(); const contact = el("#newOwnerContact")?.value.trim(); const area = Number(el("#newOwnerArea")?.value); if (!name || !contact || !Number.isFinite(area) || area <= 0) { showToast("请填写主体名称、联系人和有效面积", "warn"); return; } if (state.owners.some((item) => item.name === name)) { showToast("该主体已存在，不能重复建档", "warn"); return; } const owner = { id: `YH-${String(state.owners.length + 1).padStart(3, "0")}`, name, contact, phone: el("#newOwnerPhone")?.value.trim() || "未填写", area, region: el("#newOwnerRegion")?.value || "江滨农场一片区", crop: el("#newOwnerCrop")?.value || "晚稻", contract: "正常履约", contractStatus: "green", expiry: "2028-12-31", plots: 1, subjectType: "企业", address: "待补充" }; state.owners.push(owner); state.contracts.push({ id: `HT-NEW-${String(state.contracts.length + 1).padStart(4, "0")}`, owner: ownerShortName(owner), ownerId: owner.id, region: owner.region, plot: "待关联地块", area, sign: "2026-09-18", expiry: owner.expiry, amount: area * 330, paid: area * 330, status: "green" }); syncDerivedData(); closeModal(); render("owners"); showToast("流转大户档案已保存"); }
+      else if (action === "addOwner") { openModal("新增流转大户档案", `<div class="info-pair"><div><label class="field-label">主体名称</label><input id="newOwnerName" class="input-control" style="width:100%" value="" placeholder="请输入主体名称" /></div><div><label class="field-label">联系人</label><input id="newOwnerContact" class="input-control" style="width:100%" value="" placeholder="请输入联系人" /></div></div><div class="info-pair"><div><label class="field-label">联系电话</label><input id="newOwnerPhone" class="input-control" style="width:100%" value="" placeholder="请输入联系电话" /></div><div><label class="field-label">流转面积（亩）</label><input id="newOwnerArea" class="input-control" type="number" style="width:100%" value="" placeholder="请输入面积" /></div></div><div class="info-pair"><div><label class="field-label">所属区域</label><select id="newOwnerRegion" class="select-control" style="width:100%"><option>江滨农场一片区</option><option>江滨农场二片区</option><option>江滨农场三片区</option><option>滨海产业园区</option></select></div><div><label class="field-label">主栽作物</label><input id="newOwnerCrop" class="input-control" list="newOwnerCropOptions" style="width:100%" placeholder="输入或选择作物" /><datalist id="newOwnerCropOptions">${cropOptionList()}</datalist></div></div>`, `<button class="btn primary" data-action="saveOwner">保存档案</button><button class="btn" data-action="closeModal">取消</button>`); }
+      else if (action === "saveOwner") { const name = el("#newOwnerName")?.value.trim(); const contact = el("#newOwnerContact")?.value.trim(); const crop = el("#newOwnerCrop")?.value.trim() || "晚稻"; const area = Number(el("#newOwnerArea")?.value); if (!name || !contact || !Number.isFinite(area) || area <= 0) { showToast("请填写主体名称、联系人和有效面积", "warn"); return; } if (!activeCrops().some((item) => item.name === crop)) { showToast("请选择作物维护中已启用的作物类型", "warn"); return; } if (state.owners.some((item) => item.name === name)) { showToast("该主体已存在，不能重复建档", "warn"); return; } const owner = { id: `YH-${String(state.owners.length + 1).padStart(3, "0")}`, name, contact, phone: el("#newOwnerPhone")?.value.trim() || "未填写", area, region: el("#newOwnerRegion")?.value || "江滨农场一片区", crop, contract: "正常履约", contractStatus: "green", expiry: "2028-12-31", plots: 1, subjectType: "企业", address: "待补充" }; state.owners.push(owner); state.contracts.push({ id: `HT-NEW-${String(state.contracts.length + 1).padStart(4, "0")}`, owner: ownerShortName(owner), ownerId: owner.id, region: owner.region, plot: "待关联地块", area, sign: "2026-09-18", expiry: owner.expiry, amount: area * 330, paid: area * 330, status: "green" }); syncDerivedData(); closeModal(); render("owners"); showToast("流转大户档案已保存"); }
       else if (action === "filterOwners") { state.ownerFilter = { region: el("#ownerRegion")?.value || "all", crop: el("#ownerCrop")?.value || "all", status: el("#ownerStatus")?.value || "all", search: el("#ownerSearch")?.value || "", minArea: el("#ownerMinArea")?.value || "", maxArea: el("#ownerMaxArea")?.value || "" }; render("owners"); showToast(`筛选完成，共匹配 ${ownerRowsFiltered().length} 户`); }
       else if (action === "resetOwners") { state.ownerFilter = { region: "all", crop: "all", status: "all", search: "", minArea: "", maxArea: "" }; render("owners"); }
       else if (action === "filterContracts") { state.contractFilter = { region: el("#contractRegion")?.value || "all", status: el("#contractStatus")?.value || "all", payment: el("#contractPayment")?.value || "all" }; render("contracts"); showToast(`筛选完成，共匹配 ${contractRowsFiltered().length} 份合同`); }
@@ -940,6 +1202,7 @@
     });
     document.addEventListener("change", (event) => {
       if (event.target.id === "ownerImportFile" && event.target.files?.[0]) importOwnersFromFile(event.target.files[0]);
+      if (event.target.id === "mapBaseMode") setBaseMode(event.target.value);
       if (event.target.id === "mapLayerFilter") {
         const value = event.target.value;
         if (state.parcelLayer) state.parcelLayer.eachLayer((layer) => { const visible = value === "all" || parcelStatus(state.parcels.indexOf(layer.feature)) === value; layer.setStyle({ opacity: visible ? .9 : 0, fillOpacity: visible ? .32 : 0 }); });

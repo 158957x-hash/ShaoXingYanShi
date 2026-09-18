@@ -117,6 +117,7 @@ button { cursor: pointer; }
 .legend-dot.green { background: var(--green); }
 .legend-dot.yellow { background: var(--yellow); }
 .legend-dot.red { background: var(--red); }
+.boundary-swatch { width: 18px; height: 0; border-top: 3px dashed #ff4f21; box-shadow: 0 0 0 1px rgba(255,255,255,.45); }
 .chart { height: 168px; }
 .bars { height: 100%; display: flex; align-items: flex-end; gap: 16px; padding: 16px 8px 4px; background: repeating-linear-gradient(to top, transparent 0, transparent 39px, rgba(116, 165, 198, .09) 40px); }
 .bar-group { height: 100%; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 7px; }
@@ -186,10 +187,10 @@ button { cursor: pointer; }
 .leaflet-control-attribution a { color: #64c6db !important; }
 .parcel-shape { cursor: pointer; transition: fill .2s; }
 .parcel-shape:hover { fill: #5bdddf !important; fill-opacity: .66 !important; }
-.map-marker { width: 18px; height: 18px; display: grid; place-items: center; border: 2px solid #c9fbff; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 0 12px rgba(52, 211, 233, .65); }
-.map-marker::after { width: 5px; height: 5px; border-radius: 50%; background: #c9fbff; content: ""; }
-.map-marker.alert { background: var(--red); }
-.map-marker.camera { background: #2b9bc1; }
+.parcel-shape.selected { stroke: #dffcff !important; stroke-width: 3 !important; fill: #55d8e8 !important; fill-opacity: .68 !important; }
+.map-marker { width: 38px; height: 38px; display: block; border: 0; background: transparent; filter: drop-shadow(0 2px 4px rgba(0, 13, 31, .58)); }
+.map-marker-image { display: block; width: 38px; height: 38px; object-fit: contain; pointer-events: none; mix-blend-mode: multiply; }
+.map-marker.alert, .map-marker.camera { background: transparent; }
 .leaflet-tooltip { color: #d8f6ff; border: 1px solid var(--line-strong); background: #082541; box-shadow: none; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: #d7effb; background: #092946; }
 .leaflet-popup-content { font-family: inherit; font-size: 12px; }
@@ -206,11 +207,13 @@ button { cursor: pointer; }
 .fallback-map.satellite .tdt-tile-layer img { filter: saturate(.83) brightness(.72); }
 .fallback-map .fallback-road { fill: none; stroke: rgba(166, 219, 225, .17); stroke-width: 1.4; stroke-dasharray: 9 8; }
 .fallback-map .fallback-water { fill: rgba(30, 119, 147, .18); stroke: rgba(94, 196, 215, .18); stroke-width: 1; }
-.fallback-map .fallback-boundary { fill: rgba(90, 194, 212, .035); stroke: rgba(120, 219, 233, .65); stroke-width: 1.25; stroke-dasharray: 7 6; }
+.fallback-map .fallback-boundary { fill: rgba(245, 189, 97, .07); stroke: #f06b35; stroke-width: 3.2; stroke-dasharray: 14 8; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(255, 255, 255, .86)); }
 .fallback-map .fallback-parcel { cursor: pointer; stroke-width: .65; transition: fill-opacity .18s, stroke-width .18s; }
 .fallback-map .fallback-parcel:hover, .fallback-map .fallback-parcel.selected { fill-opacity: .74; stroke: #cffaff; stroke-width: 1.65; }
 .fallback-map .fallback-label { fill: rgba(204, 235, 242, .68); font-size: 10px; letter-spacing: 1px; pointer-events: none; }
 .fallback-map .fallback-marker { stroke: #e4fbff; stroke-width: 1.4; filter: drop-shadow(0 0 4px rgba(64, 222, 235, .6)); }
+.fallback-map .fallback-marker-glyph { fill: #f2fdff; stroke: none; font-size: 12px; font-weight: 700; pointer-events: none; }
+.fallback-map .fallback-marker-image { width: 36px; height: 36px; pointer-events: none; mix-blend-mode: multiply; }
 .map-key { position: absolute; z-index: 900; bottom: 14px; left: 14px; display: flex; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: rgba(6, 23, 43, .85); font-size: 10px; }
 
 .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px; }
