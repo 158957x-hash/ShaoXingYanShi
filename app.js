@@ -417,12 +417,12 @@
     const maxRegionArea = Math.max(1, ...regionRows.map((item) => item.area));
     const maxExpiry = Math.max(1, ...expiryRows.map((item) => item.count));
     el("#content").innerHTML = `
-      ${pageHeader("统计分析", "按行政区域、作物类型和合同期限自动汇总流转经营数据，统计结果与档案和合同状态联动。", `<button class="btn" data-view="owners">查看大户档案</button><button class="btn primary" data-view="map">在一张图查看</button>`)}
+      ${pageHeader("统计分析", "按行政区域、作物类型和合同期限自动汇总流转经营数据，统计结果与档案和合同状态联动。", `<button class="btn" data-action="exportAnalytics">⇩ 导出统计报表</button><button class="btn" data-view="owners">查看大户档案</button><button class="btn primary" data-view="map">在一张图查看</button>`)}
       <div class="stat-row"><div class="simple-stat"><span>区域流转户数</span><strong>${state.owners.length}<em>户</em></strong></div><div class="simple-stat"><span>总流转面积</span><strong>${totalArea.toLocaleString()}<em>亩</em></strong></div><div class="simple-stat"><span>主栽作物类型</span><strong>${cropRowsData.length}<em>种</em></strong></div><div class="simple-stat"><span>合同到期/逾期</span><strong style="color:var(--yellow)">${state.contracts.filter((contract) => contract.days <= 90).length}<em>份</em></strong></div></div>
       <div class="panel-grid">
-        <div class="panel"><div class="panel-header"><div><div class="panel-title">区域流转户数与面积</div><div class="panel-sub">按主体所属行政区域统计</div></div></div><div class="panel-body"><div class="table-wrap" style="border:0;background:transparent"><table class="data-table"><thead><tr><th>区域</th><th>流转户数</th><th>总面积（亩）</th><th>面积占比</th></tr></thead><tbody>${regionRows.map((item) => `<tr><td>${escapeHtml(item.region)}</td><td>${item.owners} 户</td><td>${item.area.toLocaleString()}</td><td>${totalArea ? (item.area / totalArea * 100).toFixed(1) : "0.0"}%</td></tr>`).join("")}</tbody></table></div></div></div>
-        <div class="panel"><div class="panel-header"><div><div class="panel-title">作物种植分布占比</div><div class="panel-sub">以流转档案面积作为统计口径</div></div></div><div class="panel-body">${cropRowsData.map((item) => `<div class="progress-row"><div class="progress-row-top"><span>${escapeHtml(item.name)} <small>${item.owners} 户 · ${item.area.toLocaleString()} 亩</small></span><b style="color:var(--cyan)">${item.percent.toFixed(1)}%</b></div><div class="progress-line"><i style="width:${Math.max(2, item.percent)}%;background:linear-gradient(90deg,#35c7e8,#72e1df)"></i></div></div>`).join("") || `<div class="empty-chart">暂无作物种植数据</div>`}</div></div>
-        <div class="panel"><div class="panel-header"><div><div class="panel-title">合同到期时段分布</div><div class="panel-sub">按当前规则计算剩余天数</div></div></div><div class="panel-body"><div class="bars analytics-bars">${expiryRows.map((item) => `<div class="bar-group"><span class="bar-value">${item.count} 份</span><div class="bar-stack"><i class="bar ${item.tone}" style="height:${Math.max(8, item.count / maxExpiry * 100)}%"></i></div><span class="bar-label">${item.label}</span></div>`).join("")}</div></div></div>
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">区域流转户数与面积</div><div class="panel-sub">按主体所属行政区域统计 · 点击区域反向筛选档案</div></div></div><div class="panel-body"><div class="table-wrap" style="border:0;background:transparent"><table class="data-table"><thead><tr><th>区域</th><th>流转户数</th><th>总面积（亩）</th><th>面积占比</th></tr></thead><tbody>${regionRows.map((item) => `<tr class="clickable-stat" data-action="analyticsFilter" data-kind="region" data-value="${escapeHtml(item.region)}"><td>${escapeHtml(item.region)}</td><td>${item.owners} 户</td><td>${item.area.toLocaleString()}</td><td>${totalArea ? (item.area / totalArea * 100).toFixed(1) : "0.0"}%</td></tr>`).join("")}</tbody></table></div></div></div>
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">作物种植分布占比</div><div class="panel-sub">以流转档案面积作为统计口径 · 点击作物反向筛选档案</div></div></div><div class="panel-body">${cropRowsData.map((item) => `<div class="progress-row clickable-stat" data-action="analyticsFilter" data-kind="crop" data-value="${escapeHtml(item.name)}"><div class="progress-row-top"><span>${escapeHtml(item.name)} <small>${item.owners} 户 · ${item.area.toLocaleString()} 亩</small></span><b style="color:var(--cyan)">${item.percent.toFixed(1)}%</b></div><div class="progress-line"><i style="width:${Math.max(2, item.percent)}%;background:linear-gradient(90deg,#35c7e8,#72e1df)"></i></div></div>`).join("") || `<div class="empty-chart">暂无作物种植数据</div>`}</div></div>
+        <div class="panel"><div class="panel-header"><div><div class="panel-title">合同到期时段分布</div><div class="panel-sub">按当前规则计算剩余天数 · 点击时段反向筛选合同</div></div></div><div class="panel-body"><div class="bars analytics-bars">${expiryRows.map((item) => `<div class="bar-group clickable-stat" data-action="analyticsFilter" data-kind="expiry" data-value="${item.tone === "cyan" ? "green" : item.tone}"><span class="bar-value">${item.count} 份</span><div class="bar-stack"><i class="bar ${item.tone}" style="height:${Math.max(8, item.count / maxExpiry * 100)}%"></i></div><span class="bar-label">${item.label}</span></div>`).join("")}</div></div></div>
         <div class="panel"><div class="panel-header"><div><div class="panel-title">区域面积对比</div><div class="panel-sub">用于快速识别重点经营区域</div></div></div><div class="panel-body">${regionRows.map((item) => `<div class="progress-row"><div class="progress-row-top"><span>${escapeHtml(item.region)} <small>${item.owners} 户</small></span><b>${item.area.toLocaleString()} 亩</b></div><div class="progress-line"><i style="width:${Math.max(2, item.area / maxRegionArea * 100)}%;background:linear-gradient(90deg,#42d5a2,#35c7e8)"></i></div></div>`).join("")}</div></div>
       </div>`;
   }
@@ -574,7 +574,7 @@
   async function initMap(containerId, compact) {
     const node = el(`#${containerId}`);
     if (!node) return;
-    if (!window.L) {
+    if (!window.L || location.protocol === "file:" || navigator.onLine === false) {
       await initFallbackMap(containerId, compact);
       return;
     }
@@ -582,7 +582,7 @@
       state.mapInstances[containerId].remove();
       delete state.mapInstances[containerId];
     }
-    const map = L.map(containerId, { zoomControl: !compact, attributionControl: true, preferCanvas: true }).setView(C.project.center, compact ? C.project.zoom - 1 : C.project.zoom);
+    const map = L.map(containerId, { zoomControl: !compact, attributionControl: true }).setView(C.project.center, compact ? C.project.zoom - 1 : C.project.zoom);
     state.mapInstances[containerId] = map;
     const mode = state.baseMode || C.project.defaultBase;
     const baseUrl = mode === "satellite" ? C.tianditu.image : mode === "terrain" ? C.tianditu.terrain : C.tianditu.vector;
@@ -607,9 +607,14 @@
     if (features.length) enrichParcelProperties(features);
     if (!features.length) {
       try {
-        const response = await fetch(C.data.parcels, { cache: "no-store" });
-        const geojson = await response.json();
-        features = geojson.features || [];
+        const embedded = window.EMBEDDED_DATA?.parcels;
+        if ((location.protocol === "file:" || navigator.onLine === false) && embedded) {
+          features = embedded.features || [];
+        } else {
+          const response = await fetch(C.data.parcels, { cache: "no-store" });
+          const geojson = await response.json();
+          features = geojson.features || [];
+        }
         state.parcels = features;
         enrichParcelProperties(state.parcels);
       } catch (error) {
@@ -706,6 +711,7 @@
 
   function createTdtTiles(root, mode) {
     root.querySelector(".tdt-tile-layer")?.remove();
+    if (location.protocol === "file:" || navigator.onLine === false) return;
     const layer = document.createElement("div");
     layer.className = "tdt-tile-layer";
     const zoom = 14;
@@ -754,8 +760,11 @@
 
   async function loadMapData(map, containerId, compact) {
     try {
-      const response = await fetch(C.data.parcels, { cache: "no-store" });
-      const geojson = await response.json();
+      const embedded = window.EMBEDDED_DATA?.parcels;
+      const geojson = (location.protocol === "file:" || navigator.onLine === false) && embedded ? embedded : await (async () => {
+        const response = await fetch(C.data.parcels, { cache: "no-store" });
+        return response.json();
+      })();
       state.parcels = geojson.features || [];
       enrichParcelProperties(state.parcels);
       state.parcelDataLoaded = true;
@@ -887,6 +896,7 @@
   }
 
   async function fetchBoundary(primary) {
+    if ((location.protocol === "file:" || navigator.onLine === false) && window.EMBEDDED_DATA?.boundary) return window.EMBEDDED_DATA.boundary;
     try {
       const response = await fetch(C.project.adminBoundaryFallback, { cache: "no-store" });
       if (response.ok) return await response.json();
@@ -980,6 +990,18 @@
     const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
   }
 
+  function downloadRows(filename, headers, body) {
+    if (window.XLSX?.utils?.aoa_to_sheet && window.XLSX.writeFile) {
+      const worksheet = window.XLSX.utils.aoa_to_sheet([headers, ...body]);
+      const workbook = window.XLSX.utils.book_new();
+      window.XLSX.utils.book_append_sheet(workbook, worksheet, "数据");
+      window.XLSX.writeFile(workbook, `${filename}.xlsx`);
+      return "xlsx";
+    }
+    downloadText(`${filename}.csv`, "\ufeff" + [headers, ...body].map((line) => line.map(csvCell).join(",")).join("\n"), "text/csv;charset=utf-8");
+    return "csv";
+  }
+
   function csvCell(value) {
     const text = String(value ?? "");
     return /[,\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -989,8 +1011,27 @@
     const rows = ownerRowsFiltered();
     const headers = ["档案编号", "主体名称", "联系人", "联系电话", "所属行政区域", "经营主体性质", "经营地址", "流转面积(亩)", "主栽作物", "合同编号", "合同签订时间", "合同到期时间", "合同状态"];
     const body = rows.map((item) => [item.id, item.name, item.contact, item.phone, item.region, item.subjectType, item.address, item.area, item.crop, item.contractNumber, item.signDate, item.expiry, item.contract]);
-    downloadText("流转大户档案-当前筛选结果.csv", "\ufeff" + [headers, ...body].map((line) => line.map(csvCell).join(",")).join("\n"), "text/csv;charset=utf-8");
-    showToast(`已导出当前筛选结果：${rows.length} 户`);
+    const format = downloadRows("流转大户档案-当前筛选结果", headers, body);
+    showToast(`已导出当前筛选结果：${rows.length} 户（${format.toUpperCase()}）`);
+  }
+
+  function exportAnalytics() {
+    const totalArea = state.owners.reduce((sum, owner) => sum + Number(owner.area || 0), 0);
+    const regions = ["江滨农场一片区", "江滨农场二片区", "江滨农场三片区", "滨海产业园区"];
+    const rows = [["统计类别", "统计项", "户数/份数", "面积（亩）", "占比"]];
+    regions.forEach((region) => {
+      const owners = state.owners.filter((owner) => owner.region === region);
+      const area = owners.reduce((sum, owner) => sum + Number(owner.area || 0), 0);
+      rows.push(["区域流转", region, owners.length, area, totalArea ? `${(area / totalArea * 100).toFixed(1)}%` : "0.0%"]);
+    });
+    state.crops.forEach((crop) => {
+      const owners = state.owners.filter((owner) => owner.crop === crop.name);
+      const area = owners.reduce((sum, owner) => sum + Number(owner.area || 0), 0);
+      if (area) rows.push(["作物分布", crop.name, owners.length, area, totalArea ? `${(area / totalArea * 100).toFixed(1)}%` : "0.0%"]);
+    });
+    state.contracts.forEach((contract) => rows.push(["合同到期", contract.id, contract.days, contract.area, contractLabel(contract.status)]));
+    const format = downloadRows("农田流转统计分析报表", rows[0], rows.slice(1));
+    showToast(`统计分析报表已导出（${format.toUpperCase()}）`);
   }
 
   function splitCsvLine(line) {
@@ -1078,8 +1119,8 @@
     const rows = contractRowsFiltered();
     const headers = ["合同编号", "流转主体", "区域", "关联地块", "面积(亩)", "签订时间", "到期时间", "剩余天数", "履约状态", "风险等级", "合同金额", "已缴金额", "待缴金额"];
     const body = rows.map((item) => [item.id, item.owner, item.region, item.plot, item.area, item.sign, item.expiry, item.days, item.performance, contractLabel(item.status), item.amount, item.paid, item.amount - item.paid]);
-    downloadText("合同台账-当前筛选结果.csv", "\ufeff" + [headers, ...body].map((line) => line.map(csvCell).join(",")).join("\n"), "text/csv;charset=utf-8");
-    showToast(`已导出当前合同结果：${rows.length} 份`);
+    const format = downloadRows("合同台账-当前筛选结果", headers, body);
+    showToast(`已导出当前合同结果：${rows.length} 份（${format.toUpperCase()}）`);
   }
 
   function previewContract(id) {
@@ -1107,7 +1148,7 @@
     alert.remark = el("#alertRemark")?.value || alert.remark || "";
     closeModal();
     render("drone");
-    showToast(`告警 ${id} 已${status}，处置记录已保存`);
+    showToast(`告警 ${id} ${status.replace(/^已/, "")}，处置记录已保存`);
   }
 
   window.prototypeOpenAlert = alertDetail;
@@ -1141,6 +1182,23 @@
       if (!action) return;
       if (action === "refresh") { showToast("数据已刷新，所有模块状态正常"); render(state.view); }
       else if (action === "mapSearch") searchMap();
+      else if (action === "analyticsFilter") {
+        const kind = target.dataset.kind;
+        const value = target.dataset.value || "";
+        if (kind === "region") {
+          state.ownerFilter = { ...state.ownerFilter, region: value, crop: "all", status: "all", search: "", minArea: "", maxArea: "" };
+          render("owners");
+          showToast(`已按区域筛选：${value}`);
+        } else if (kind === "crop") {
+          state.ownerFilter = { ...state.ownerFilter, region: "all", crop: value, status: "all", search: "", minArea: "", maxArea: "" };
+          render("owners");
+          showToast(`已按作物筛选：${value}`);
+        } else if (kind === "expiry") {
+          state.contractFilter = { ...state.contractFilter, region: "all", status: value, payment: "all" };
+          render("contracts");
+          showToast(`已按合同风险筛选：${contractLabel(value)}`);
+        }
+      }
       else if (action === "locateProject") { state.mapInstances.fullMap?.setView(C.project.center, 13); showToast("已定位到绍兴市越城区滨海新区项目区"); }
       else if (action === "toggleSatellite") toggleSatellite();
       else if (action === "addCrop") addCrop();
@@ -1164,8 +1222,9 @@
       else if (action === "contractMap") { const plot = String(target.dataset.id || "").match(/BH-\d{4}/)?.[0] || target.dataset.id; closeModal(); render("map"); setTimeout(() => { const input = el("#mapSearch"); if (input) { input.value = plot; searchMap(); } }, 350); }
       else if (action === "importExcel") { el("#ownerImportFile")?.click(); }
       else if (action === "confirmImport") { closeModal(); showToast("请先选择需要导入的 CSV/Excel 文件", "warn"); }
-      else if (action === "downloadTemplate") { downloadText("流转大户档案导入模板.csv", "主体名称,联系人,联系电话,所属行政区域,经营地址,流转合同编号,合同签订时间,合同到期时间,流转地块面积,种植作物类型,经营主体性质\n"); showToast("导入模板已下载，已包含联系人列"); }
+      else if (action === "downloadTemplate") { const format = downloadRows("流转大户档案导入模板", ["主体名称", "联系人", "联系电话", "所属行政区域", "经营地址", "流转合同编号", "合同签订时间", "合同到期时间", "流转地块面积", "种植作物类型", "经营主体性质"], []); showToast(`导入模板已下载，已包含联系人列（${format.toUpperCase()}）`); }
       else if (action === "exportOwners") exportOwners();
+      else if (action === "exportAnalytics") exportAnalytics();
       else if (action === "addOwner") { openModal("新增流转大户档案", `<div class="info-pair"><div><label class="field-label">主体名称</label><input id="newOwnerName" class="input-control" style="width:100%" value="" placeholder="请输入主体名称" /></div><div><label class="field-label">联系人</label><input id="newOwnerContact" class="input-control" style="width:100%" value="" placeholder="请输入联系人" /></div></div><div class="info-pair"><div><label class="field-label">联系电话</label><input id="newOwnerPhone" class="input-control" style="width:100%" value="" placeholder="请输入联系电话" /></div><div><label class="field-label">流转面积（亩）</label><input id="newOwnerArea" class="input-control" type="number" style="width:100%" value="" placeholder="请输入面积" /></div></div><div class="info-pair"><div><label class="field-label">所属区域</label><select id="newOwnerRegion" class="select-control" style="width:100%"><option>江滨农场一片区</option><option>江滨农场二片区</option><option>江滨农场三片区</option><option>滨海产业园区</option></select></div><div><label class="field-label">主栽作物</label><input id="newOwnerCrop" class="input-control" list="newOwnerCropOptions" style="width:100%" placeholder="输入或选择作物" /><datalist id="newOwnerCropOptions">${cropOptionList()}</datalist></div></div>`, `<button class="btn primary" data-action="saveOwner">保存档案</button><button class="btn" data-action="closeModal">取消</button>`); }
       else if (action === "saveOwner") { const name = el("#newOwnerName")?.value.trim(); const contact = el("#newOwnerContact")?.value.trim(); const crop = el("#newOwnerCrop")?.value.trim() || "晚稻"; const area = Number(el("#newOwnerArea")?.value); if (!name || !contact || !Number.isFinite(area) || area <= 0) { showToast("请填写主体名称、联系人和有效面积", "warn"); return; } if (!activeCrops().some((item) => item.name === crop)) { showToast("请选择作物维护中已启用的作物类型", "warn"); return; } if (state.owners.some((item) => item.name === name)) { showToast("该主体已存在，不能重复建档", "warn"); return; } const owner = { id: `YH-${String(state.owners.length + 1).padStart(3, "0")}`, name, contact, phone: el("#newOwnerPhone")?.value.trim() || "未填写", area, region: el("#newOwnerRegion")?.value || "江滨农场一片区", crop, contract: "正常履约", contractStatus: "green", expiry: "2028-12-31", plots: 1, subjectType: "企业", address: "待补充" }; state.owners.push(owner); state.contracts.push({ id: `HT-NEW-${String(state.contracts.length + 1).padStart(4, "0")}`, owner: ownerShortName(owner), ownerId: owner.id, region: owner.region, plot: "待关联地块", area, sign: "2026-09-18", expiry: owner.expiry, amount: area * 330, paid: area * 330, status: "green" }); syncDerivedData(); closeModal(); render("owners"); showToast("流转大户档案已保存"); }
       else if (action === "filterOwners") { state.ownerFilter = { region: el("#ownerRegion")?.value || "all", crop: el("#ownerCrop")?.value || "all", status: el("#ownerStatus")?.value || "all", search: el("#ownerSearch")?.value || "", minArea: el("#ownerMinArea")?.value || "", maxArea: el("#ownerMaxArea")?.value || "" }; render("owners"); showToast(`筛选完成，共匹配 ${ownerRowsFiltered().length} 户`); }
