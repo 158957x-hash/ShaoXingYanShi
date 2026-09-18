@@ -19,7 +19,7 @@ http://127.0.0.1:8765/演示原型/index.html
 ## 已接入内容
 
 - 项目行政区划：绍兴市越城区，滨海新区/江滨农场项目区；
-- 行政区划开源数据：阿里云 DataV 行政区划 GeoJSON，已下载越城区本地回退文件 `assets/yuecheng-boundary.geojson`；
+- 行政区划边界：使用包住 293 个演示地块和全部点位的滨海新区项目区边界 `assets/project-boundary.geojson`；正式建设时替换为采购人确认的街道级权威边界；
 - 天地图：默认使用地形图（绿色、水系和地形表现），同时配置矢量、矢量注记、影像和影像注记图层，可通过地图上的“切换底图”循环切换；
 - 地块矢量：使用用户提供的 `矢量文件/评价单元.shp`，共 293 个地块要素；
 - 坐标处理：原始数据为 CGCS2000 3 度分带高斯投影、中央经线 111° 的海南区域数据。当前原型为演示用途，将地块拓扑按比例拟合到绍兴滨海新区项目展示范围，具体转换逻辑见 `scripts/convert_shp.py`。正式建设时应替换为采购人提供的绍兴项目区 CGCS2000/WGS84 地块数据；
@@ -52,6 +52,6 @@ Excel 导入使用 SheetJS 浏览器组件；联网时可直接读取 `.xlsx`，
 - `app.js`：页面、交互、演示数据和地图联动；
 - `styles.css`：系统视觉样式；
 - `assets/parcels.geojson`：转换后的 293 个地块 GeoJSON；
-- `assets/yuecheng-boundary.geojson`：越城区行政区划本地回退数据；
+- `assets/project-boundary.geojson`：包住演示地块和点位的滨海新区项目区边界；
 - `assets/embedded-data.js`：供双击打开时使用的内嵌地块和行政区划数据；
 - `scripts/convert_shp.py`：地块转换脚本。
