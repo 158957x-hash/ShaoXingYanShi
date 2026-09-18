@@ -7,7 +7,7 @@ window.PROTOTYPE_CONFIG = {
     zoom: 13,
     defaultBase: "terrain",
     adminBoundaryUrl: "https://geo.datav.aliyun.com/areas_v3/bound/330602.json",
-    adminBoundaryFallback: "./assets/yuecheng-boundary.geojson",
+    adminBoundaryFallback: "./assets/project-boundary.geojson",
   },
   tianditu: {
     token: "685821b861c26919e7194de5f2e0f876",

@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 assets = ROOT / "assets"
 parcels = json.loads((assets / "parcels.geojson").read_text(encoding="utf-8"))
-boundary = json.loads((assets / "yuecheng-boundary.geojson").read_text(encoding="utf-8"))
+boundary = json.loads((assets / "project-boundary.geojson").read_text(encoding="utf-8"))
 payload = {
     "parcels": parcels,
     "boundary": boundary,
