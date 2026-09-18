@@ -16,7 +16,7 @@ http://127.0.0.1:8765/index.html
 
 也可以直接双击根目录的 `index.html`。页面已内嵌同一份 293 个地块和越城区边界数据，因此 `file://` 和 HTTP 方式打开时使用的矢量数据一致；HTTP 方式仍更适合加载天地图在线瓦片。
 
-GitHub Pages 部署：推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 自动发布。
+GitHub Pages 部署：推送到 `main` 后由 `.github/workflows/deploy-pages.yml` 和备用的 `.github/workflows/deploy-gh-pages-branch.yml` 自动发布。备用工作流会同步生成 `gh-pages` 分支，适用于仓库尚未启用 Pages API 的情况。
 
 ## 已接入内容
 
