@@ -188,8 +188,8 @@ button { cursor: pointer; }
 .parcel-shape { cursor: pointer; transition: fill .2s; }
 .parcel-shape:hover { fill: #5bdddf !important; fill-opacity: .66 !important; }
 .parcel-shape.selected { stroke: #dffcff !important; stroke-width: 3 !important; fill: #55d8e8 !important; fill-opacity: .68 !important; }
-.map-marker { width: 38px; height: 38px; display: block; border: 0; background: transparent; filter: drop-shadow(0 2px 4px rgba(0, 13, 31, .58)); }
-.map-marker-image { display: block; width: 38px; height: 38px; object-fit: contain; pointer-events: none; mix-blend-mode: multiply; }
+.map-marker { width: 34px; height: 34px; display: block; border: 0; background: transparent; filter: drop-shadow(0 2px 4px rgba(0, 13, 31, .58)); }
+.map-marker-image { display: block; width: 34px; height: 34px; object-fit: contain; pointer-events: none; mix-blend-mode: multiply; }
 .map-marker.alert, .map-marker.camera { background: transparent; }
 .leaflet-tooltip { color: #d8f6ff; border: 1px solid var(--line-strong); background: #082541; box-shadow: none; }
 .leaflet-popup-content-wrapper, .leaflet-popup-tip { color: #d7effb; background: #092946; }
@@ -213,7 +213,7 @@ button { cursor: pointer; }
 .fallback-map .fallback-label { fill: rgba(204, 235, 242, .68); font-size: 10px; letter-spacing: 1px; pointer-events: none; }
 .fallback-map .fallback-marker { stroke: #e4fbff; stroke-width: 1.4; filter: drop-shadow(0 0 4px rgba(64, 222, 235, .6)); }
 .fallback-map .fallback-marker-glyph { fill: #f2fdff; stroke: none; font-size: 12px; font-weight: 700; pointer-events: none; }
-.fallback-map .fallback-marker-image { width: 36px; height: 36px; pointer-events: none; mix-blend-mode: multiply; }
+.fallback-map .fallback-marker-image { width: 32px; height: 32px; pointer-events: none; mix-blend-mode: multiply; }
 .map-key { position: absolute; z-index: 900; bottom: 14px; left: 14px; display: flex; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: rgba(6, 23, 43, .85); font-size: 10px; }
 
 .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 15px; }
