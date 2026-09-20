@@ -164,6 +164,49 @@
     return [ring[0][0], ring[0][1]];
   }
 
+  function pointInFeature(point, feature) {
+    const rings = geometryRings(feature).filter((ring) => ring?.length > 2);
+    return rings.some((ring) => pointInRing(point, ring));
+  }
+
+  function markerPoint(feature, kind, ordinal = 0, placed = []) {
+    const base = featureCenter(feature);
+    const ring = geometryRings(feature).filter((item) => item?.length > 2).sort((a, b) => b.length - a.length)[0];
+    if (!ring) return base;
+    const xs = ring.map((point) => point[0]);
+    const ys = ring.map((point) => point[1]);
+    const width = Math.max(Math.max(...xs) - Math.min(...xs), 0.00008);
+    const height = Math.max(Math.max(...ys) - Math.min(...ys), 0.00008);
+    const cameraOffsets = [[-.30, .24], [-.26, -.28], [-.44, 0], [0, -.42], [.18, .34], [.42, -.12]];
+    const alertOffsets = [[.30, .24], [.26, -.28], [.44, 0], [0, .42], [-.18, .34], [-.42, -.12]];
+    const offsets = kind === "alert" ? alertOffsets : cameraOffsets;
+    const candidates = [offsets[ordinal % offsets.length], ...offsets, [0, 0]];
+    for (const [dx, dy] of candidates) {
+      const candidate = [base[0] + width * dx, base[1] + height * dy];
+      const separated = placed.every((item) => Math.hypot((item[0] - candidate[0]) / width, (item[1] - candidate[1]) / height) > .18);
+      if (pointInFeature(candidate, feature) && separated) return candidate;
+    }
+    return base;
+  }
+
+  function buildParcelBoundary(source) {
+    const features = Array.isArray(source) ? source : (source?.features || []);
+    const points = [];
+    features.forEach((feature) => geometryRings(feature).forEach((ring) => ring.forEach((point) => points.push([Number(point[0]), Number(point[1])]))) );
+    const sorted = points.filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1])).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (sorted.length < 3) return null;
+    const cross = (origin, a, b) => (a[0] - origin[0]) * (b[1] - origin[1]) - (a[1] - origin[1]) * (b[0] - origin[0]);
+    const lower = [];
+    sorted.forEach((point) => { while (lower.length > 1 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop(); lower.push(point); });
+    const upper = [];
+    sorted.slice().reverse().forEach((point) => { while (upper.length > 1 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop(); upper.push(point); });
+    const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+    const center = hull.reduce((sum, point) => [sum[0] + point[0], sum[1] + point[1]], [0, 0]).map((value) => value / hull.length);
+    const ring = hull.map((point) => [Number((center[0] + (point[0] - center[0]) * 1.045).toFixed(7)), Number((center[1] + (point[1] - center[1]) * 1.045).toFixed(7))]);
+    ring.push(ring[0]);
+    return { type: "FeatureCollection", features: [{ type: "Feature", properties: { name: "绍兴市越城区滨海新区农田项目区边界", level: "项目区" }, geometry: { type: "Polygon", coordinates: [ring] } }] };
+  }
+
   function plantingInfo(feature, owner) {
     const parcelId = feature?.properties?.parcelId || "BH-0000";
     const number = Number(String(parcelId).replace(/\D/g, "")) || 1;
@@ -625,7 +668,7 @@
     }
     const root = document.createElement("div");
     root.className = "fallback-map";
-    root.innerHTML = `<svg viewBox="0 0 1000 650" preserveAspectRatio="none" role="img" aria-label="绍兴滨海新区农田地块分布图"><path class="fallback-water" d="M0,0 H1000 V92 C866,132 750,79 615,119 C474,162 344,88 206,118 C111,139 62,120 0,145 Z"></path><path class="fallback-road" d="M-20,522 C205,458 355,486 504,416 S783,303 1020,350"></path><path class="fallback-road" d="M88,-12 C165,148 124,278 236,398 S466,552 526,675"></path><path class="fallback-road" d="M-25,270 C155,246 259,284 405,236 S695,153 1022,188"></path><path class="fallback-boundary" d="M132,88 L814,60 L944,198 L878,555 L604,608 L192,548 L68,360 Z"></path><text class="fallback-label" x="80" y="47">绍兴市越城区 · 滨海新区</text><text class="fallback-label" x="750" y="106">钱塘江南岸</text><g class="fallback-admin-boundary"></g><g class="fallback-parcels"></g><g class="fallback-markers"></g></svg>`;
+    root.innerHTML = `<svg viewBox="0 0 1000 650" preserveAspectRatio="none" role="img" aria-label="绍兴滨海新区农田地块分布图"><path class="fallback-water" d="M0,0 H1000 V92 C866,132 750,79 615,119 C474,162 344,88 206,118 C111,139 62,120 0,145 Z"></path><path class="fallback-road" d="M-20,522 C205,458 355,486 504,416 S783,303 1020,350"></path><path class="fallback-road" d="M88,-12 C165,148 124,278 236,398 S466,552 526,675"></path><path class="fallback-road" d="M-25,270 C155,246 259,284 405,236 S695,153 1022,188"></path><text class="fallback-label" x="80" y="47">绍兴市越城区 · 滨海新区</text><text class="fallback-label" x="750" y="106">钱塘江南岸</text><g class="fallback-admin-boundary"></g><g class="fallback-parcels"></g><g class="fallback-markers"></g></svg>`;
     node.innerHTML = "";
     node.appendChild(root);
     root.dataset.baseMode = C.project.defaultBase;
@@ -664,23 +707,28 @@
       });
     });
     if (!compact) {
+      const placedMarkers = [];
       state.cameras.forEach((camera, index) => {
         const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
-        const [x, y] = project(featureCenter(feature));
+        const point = markerPoint(feature, "camera", index, placedMarkers);
+        placedMarkers.push(point);
+        const [x, y] = project(point);
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
         marker.setAttribute("class", "fallback-marker fallback-camera-marker"); marker.dataset.action = "cameraDetail"; marker.dataset.id = camera.id;
         marker.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
-        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/camera-marker.png?v=20260920" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
+        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/camera-marker.png?v=20260920" x="-16" y="-32" width="32" height="32" preserveAspectRatio="xMidYMid meet"></image>`;
         marker.addEventListener("click", (event) => { event.stopPropagation(); openCamera(camera.id); });
         markerGroup.appendChild(marker);
       });
       state.alerts.filter((item) => item.level === "red" || item.type === "渣土倾倒").forEach((alert, index) => {
         const feature = parcelFeature(alert.parcelId) || state.parcels[(index + 4) % Math.max(1, state.parcels.length)];
-        const [x, y] = project(featureCenter(feature));
+        const point = markerPoint(feature, "alert", index, placedMarkers);
+        placedMarkers.push(point);
+        const [x, y] = project(point);
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
         marker.setAttribute("class", "fallback-marker fallback-alert-marker");
         marker.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
-        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/alert-marker.png?v=20260920" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
+        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/alert-marker.png?v=20260920" x="-16" y="-32" width="32" height="32" preserveAspectRatio="xMidYMid meet"></image>`;
         marker.addEventListener("click", (event) => { event.stopPropagation(); alertDetail(alert.id); });
         markerGroup.appendChild(marker);
       });
@@ -711,7 +759,7 @@
 
   function createTdtTiles(root, mode) {
     root.querySelector(".tdt-tile-layer")?.remove();
-    if (location.protocol === "file:" || navigator.onLine === false) return;
+    if (navigator.onLine === false) return;
     const layer = document.createElement("div");
     layer.className = "tdt-tile-layer";
     const zoom = 14;
@@ -870,10 +918,12 @@
 
   function addMapLayers(map) {
     const cameras = L.layerGroup();
+    const placedMarkers = [];
     state.cameras.forEach((camera, index) => {
       const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
-      const [lng, lat] = featureCenter(feature);
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" src="./assets/icons/camera-marker.png?v=20260920" alt="视频点位" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
+      const [lng, lat] = markerPoint(feature, "camera", index, placedMarkers);
+      placedMarkers.push([lng, lat]);
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" src="./assets/icons/camera-marker.png?v=20260920" alt="视频点位" /></div>`, iconSize: [34, 34], iconAnchor: [17, 32] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${camera.name}</strong><br>${camera.plot} · ${camera.owner}<br><span style="color:#62e5ad">● ${camera.online ? "在线" : "信号波动"}</span>`).addTo(cameras);
     });
     cameras.addTo(map);
@@ -881,8 +931,9 @@
     const alerts = L.layerGroup();
     state.alerts.filter(a => a.level === "red" || a.type === "渣土倾倒").forEach((alert, index) => {
       const feature = parcelFeature(alert.parcelId) || state.parcels[(index + 4) % Math.max(1, state.parcels.length)];
-      const [lng, lat] = featureCenter(feature);
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" src="./assets/icons/alert-marker.png?v=20260920" alt="风险告警" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
+      const [lng, lat] = markerPoint(feature, "alert", index, placedMarkers);
+      placedMarkers.push([lng, lat]);
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" src="./assets/icons/alert-marker.png?v=20260920" alt="风险告警" /></div>`, iconSize: [34, 34], iconAnchor: [17, 32] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${alert.title}</strong><br>${alert.zone}<br>${alert.time}<br><button style="margin-top:7px" onclick="window.prototypeOpenAlert('${alert.id}')">查看告警详情</button>`).addTo(alerts);
     });
     alerts.addTo(map);
@@ -896,7 +947,11 @@
   }
 
   async function fetchBoundary(primary) {
-    if ((location.protocol === "file:" || navigator.onLine === false) && window.EMBEDDED_DATA?.boundary) return window.EMBEDDED_DATA.boundary;
+    if (location.protocol === "file:" || navigator.onLine === false) {
+      const generated = buildParcelBoundary(window.EMBEDDED_DATA?.parcels || state.parcels);
+      if (generated) return generated;
+      if (window.EMBEDDED_DATA?.boundary) return window.EMBEDDED_DATA.boundary;
+    }
     try {
       const response = await fetch(C.project.adminBoundaryFallback, { cache: "no-store" });
       if (response.ok) return await response.json();
@@ -905,6 +960,8 @@
       const response = await fetch(primary, { cache: "force-cache" });
       if (response.ok) return await response.json();
     } catch (error) {}
+    const generated = buildParcelBoundary(window.EMBEDDED_DATA?.parcels || state.parcels);
+    if (generated) return generated;
     if (window.EMBEDDED_DATA?.boundary) return window.EMBEDDED_DATA.boundary;
     return null;
   }
