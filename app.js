@@ -969,11 +969,11 @@
   function addAdminBoundary(map, compact = false) {
     fetchBoundary(C.project.adminBoundaryUrl).then((data) => {
       if (!data) return;
-      state.adminHaloLayer = L.geoJSON(data, { style: { color: "#071d35", weight: 8, opacity: .92, fillColor: "#071d35", fillOpacity: .03, interactive: false } }).addTo(map);
-      state.adminLayer = L.geoJSON(data, { style: { color: "#ffb454", weight: 3, opacity: .98, dashArray: "10 6", lineCap: "round", lineJoin: "round", fillColor: "#f5bd61", fillOpacity: .06 } }).addTo(map);
+      state.adminHaloLayer = L.geoJSON(data, { interactive: false, style: { color: "#071d35", weight: 8, opacity: .92, fillColor: "#071d35", fillOpacity: .03 } }).addTo(map);
+      state.adminLayer = L.geoJSON(data, { interactive: false, style: { color: "#ffb454", weight: 3, opacity: .98, dashArray: "10 6", lineCap: "round", lineJoin: "round", fillColor: "#f5bd61", fillOpacity: .06 } }).addTo(map);
       if (state.parcelLayer?.getBounds?.().isValid?.()) map.fitBounds(state.parcelLayer.getBounds(), { padding: compact ? [10, 10] : [25, 25], maxZoom: compact ? 14 : 16 });
-      state.parcelLayer?.bringToFront?.();
       state.adminLayer.bringToFront();
+      state.parcelLayer?.bringToFront?.();
     });
   }
 
