@@ -95,6 +95,22 @@
     return state.crops.find((crop) => crop.name === name) || { name: name || "未设置", category: "未分类", season: "—", cycle: "—", unit: "亩", description: "待补充" };
   }
 
+  function normalizeParcelGeoJSON(geojson) {
+    const shift = C.project.parcelCoordinateShift;
+    if (!geojson || !shift?.from || !shift?.to) return geojson;
+    const deltaLat = Number(shift.to[0]) - Number(shift.from[0]);
+    const deltaLng = Number(shift.to[1]) - Number(shift.from[1]);
+    if (!Number.isFinite(deltaLat) || !Number.isFinite(deltaLng) || (Math.abs(deltaLat) < 1e-12 && Math.abs(deltaLng) < 1e-12)) return geojson;
+    const copy = JSON.parse(JSON.stringify(geojson));
+    const translate = (value) => {
+      if (!Array.isArray(value)) return value;
+      if (typeof value[0] === "number") return [value[0] + deltaLng, value[1] + deltaLat, ...value.slice(2)];
+      return value.map(translate);
+    };
+    (copy.features || []).forEach((feature) => { if (feature.geometry?.coordinates) feature.geometry.coordinates = translate(feature.geometry.coordinates); });
+    return copy;
+  }
+
   function parcelFeature(parcelId) {
     return state.parcels.find((feature) => feature.properties?.parcelId === parcelId) || null;
   }
@@ -187,24 +203,6 @@
       if (pointInFeature(candidate, feature) && separated) return candidate;
     }
     return base;
-  }
-
-  function buildParcelBoundary(source) {
-    const features = Array.isArray(source) ? source : (source?.features || []);
-    const points = [];
-    features.forEach((feature) => geometryRings(feature).forEach((ring) => ring.forEach((point) => points.push([Number(point[0]), Number(point[1])]))) );
-    const sorted = points.filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1])).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    if (sorted.length < 3) return null;
-    const cross = (origin, a, b) => (a[0] - origin[0]) * (b[1] - origin[1]) - (a[1] - origin[1]) * (b[0] - origin[0]);
-    const lower = [];
-    sorted.forEach((point) => { while (lower.length > 1 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop(); lower.push(point); });
-    const upper = [];
-    sorted.slice().reverse().forEach((point) => { while (upper.length > 1 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop(); upper.push(point); });
-    const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
-    const center = hull.reduce((sum, point) => [sum[0] + point[0], sum[1] + point[1]], [0, 0]).map((value) => value / hull.length);
-    const ring = hull.map((point) => [Number((center[0] + (point[0] - center[0]) * 1.045).toFixed(7)), Number((center[1] + (point[1] - center[1]) * 1.045).toFixed(7))]);
-    ring.push(ring[0]);
-    return { type: "FeatureCollection", features: [{ type: "Feature", properties: { name: "绍兴市越城区滨海新区农田项目区边界", level: "项目区" }, geometry: { type: "Polygon", coordinates: [ring] } }] };
   }
 
   function plantingInfo(feature, owner) {
@@ -392,7 +390,7 @@
       <div class="panel-grid">
         <div class="panel">
           <div class="panel-header"><div><div class="panel-title">农田一张图</div><div class="panel-sub">项目区地块、主体、设备和风险空间分布</div></div><button class="panel-link" data-view="map">查看全图 →</button></div>
-          <div class="panel-body"><div class="mini-map"><div id="dashboardMap" class="map-canvas"></div><div class="mini-map-overlay"><span class="map-tag">绍兴市越城区</span><span class="map-tag">1.86 万亩</span></div><div class="map-legend"><span class="legend-item"><i class="legend-dot green"></i>正常</span><span class="legend-item"><i class="legend-dot yellow"></i>提醒</span><span class="legend-item"><i class="legend-dot red"></i>预警</span></div></div></div>
+          <div class="panel-body"><div class="mini-map"><div id="dashboardMap" class="map-canvas"></div><div class="mini-map-overlay"><span class="map-tag">绍兴市越城区 · 滨海新区</span><span class="map-tag">1.86 万亩</span></div><div class="map-legend"><span class="legend-item"><i class="legend-dot green"></i>正常</span><span class="legend-item"><i class="legend-dot yellow"></i>提醒</span><span class="legend-item"><i class="legend-dot red"></i>预警</span></div></div></div>
         </div>
         <div class="panel">
           <div class="panel-header"><div><div class="panel-title">合同到期趋势</div><div class="panel-sub">按月份统计未来 6 个月到期合同</div></div><span class="panel-sub">更新于 09:30</span></div>
@@ -475,7 +473,7 @@
     el("#content").innerHTML = `
       ${pageHeader("农田一张图", "以地块图斑为业务索引，联动查看流转主体、合同、作物、设备和告警。", `<button class="btn ghost" data-action="locateProject">⌖ 定位项目区</button><button class="btn primary" data-action="exportMap">导出当前视图</button>`)}
       <div class="filter-bar"><span class="filter-label">快速定位</span><input class="input-control" id="mapSearch" placeholder="输入农户姓名、联系人或地块编号" /><select class="select-control" id="mapLayerFilter"><option value="all">全部图层</option><option value="green">正常地块</option><option value="yellow">合同提醒</option><option value="red">风险预警</option></select><select class="select-control" id="mapBaseMode"><option value="terrain">地形图</option><option value="vector">矢量道路/建筑</option><option value="satellite">影像图</option></select><button class="btn primary" data-action="mapSearch">搜索定位</button><span style="margin-left:auto;color:var(--muted-2);font-size:11px">地形图展示地形水系；道路建筑请切换矢量，真实地表请切换影像</span></div>
-      <div class="map-shell"><div id="fullMap"></div><div class="map-toolbar"><button class="btn" data-action="toggleSatellite">▧ 循环切换底图</button><button class="btn" data-action="toggleBoundary">▢ 行政区划</button><button class="btn" data-action="toggleCameraLayer">▣ 视频点位</button><button class="btn" data-action="toggleAlertLayer">! 风险告警</button></div><div class="map-side-card hidden" id="mapDetailCard"></div><div class="map-key"><span class="legend-item"><i class="legend-dot green"></i>正常</span><span class="legend-item"><i class="legend-dot yellow"></i>合同提醒</span><span class="legend-item"><i class="legend-dot red"></i>风险预警</span><span class="legend-item"><i class="legend-dot" style="background:#2b9bc1"></i>视频点位</span><span class="legend-item"><i class="legend-dot red"></i>风险告警</span><span class="legend-item"><i class="boundary-swatch"></i>滨海新区项目区边界</span></div></div>`;
+      <div class="map-shell"><div id="fullMap"></div><div class="map-toolbar"><button class="btn" data-action="toggleSatellite">▧ 循环切换底图</button><button class="btn" data-action="toggleBoundary">▢ 行政区划</button><button class="btn" data-action="toggleCameraLayer">▣ 视频点位</button><button class="btn" data-action="toggleAlertLayer">! 风险告警</button></div><div class="map-side-card hidden" id="mapDetailCard"></div><div class="map-key"><span class="legend-item"><i class="legend-dot green"></i>正常</span><span class="legend-item"><i class="legend-dot yellow"></i>合同提醒</span><span class="legend-item"><i class="legend-dot red"></i>风险预警</span><span class="legend-item"><i class="legend-dot" style="background:#2b9bc1"></i>视频点位</span><span class="legend-item"><i class="legend-dot red"></i>风险告警</span><span class="legend-item"><i class="boundary-swatch"></i>绍兴市越城区行政区划边界（GeoDATAV）</span></div></div>`;
     initMap("fullMap", false);
     el("#mapBaseMode").value = state.baseMode || C.project.defaultBase;
   }
@@ -617,7 +615,7 @@
   async function initMap(containerId, compact) {
     const node = el(`#${containerId}`);
     if (!node) return;
-    if (!window.L || location.protocol === "file:" || navigator.onLine === false) {
+    if (!window.L) {
       await initFallbackMap(containerId, compact);
       return;
     }
@@ -658,27 +656,47 @@
           const geojson = await response.json();
           features = geojson.features || [];
         }
+        features = normalizeParcelGeoJSON({ type: "FeatureCollection", features }).features || [];
         state.parcels = features;
         enrichParcelProperties(state.parcels);
       } catch (error) {
-        features = window.EMBEDDED_DATA?.parcels?.features || makeFallbackParcels().features;
+        const fallbackSource = window.EMBEDDED_DATA?.parcels;
+        features = (fallbackSource ? normalizeParcelGeoJSON(fallbackSource) : makeFallbackParcels()).features || [];
         state.parcels = features;
         enrichParcelProperties(state.parcels);
       }
     }
     const root = document.createElement("div");
     root.className = "fallback-map";
-    root.innerHTML = `<svg viewBox="0 0 1000 650" preserveAspectRatio="none" role="img" aria-label="绍兴滨海新区农田地块分布图"><path class="fallback-water" d="M0,0 H1000 V92 C866,132 750,79 615,119 C474,162 344,88 206,118 C111,139 62,120 0,145 Z"></path><path class="fallback-road" d="M-20,522 C205,458 355,486 504,416 S783,303 1020,350"></path><path class="fallback-road" d="M88,-12 C165,148 124,278 236,398 S466,552 526,675"></path><path class="fallback-road" d="M-25,270 C155,246 259,284 405,236 S695,153 1022,188"></path><text class="fallback-label" x="80" y="47">绍兴市越城区 · 滨海新区</text><text class="fallback-label" x="750" y="106">钱塘江南岸</text><g class="fallback-admin-boundary"></g><g class="fallback-parcels"></g><g class="fallback-markers"></g></svg>`;
+    root.innerHTML = `<svg viewBox="0 0 1000 650" preserveAspectRatio="none" role="img" aria-label="绍兴滨海新区农田地块分布图"><path class="fallback-water" d="M0,0 H1000 V92 C866,132 750,79 615,119 C474,162 344,88 206,118 C111,139 62,120 0,145 Z"></path><path class="fallback-road" d="M-20,522 C205,458 355,486 504,416 S783,303 1020,350"></path><path class="fallback-road" d="M88,-12 C165,148 124,278 236,398 S466,552 526,675"></path><path class="fallback-road" d="M-25,270 C155,246 259,284 405,236 S695,153 1022,188"></path><text class="fallback-label" x="80" y="47">绍兴滨海新区 · 江滨农场</text><text class="fallback-label" x="750" y="106">钱塘江南岸</text><g class="fallback-admin-boundary"></g><g class="fallback-parcels"></g><g class="fallback-markers"></g></svg>`;
     node.innerHTML = "";
     node.appendChild(root);
+    const svg = root.querySelector("svg");
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    const zoomBox = document.createElement("div");
+    zoomBox.className = "fallback-zoom";
+    zoomBox.setAttribute("aria-label", "地图缩放");
+    zoomBox.innerHTML = `<button type="button" data-fallback-zoom="in" title="放大">+</button><button type="button" data-fallback-zoom="out" title="缩小">−</button><button type="button" data-fallback-zoom="reset" title="复位">⌂</button>`;
+    root.appendChild(zoomBox);
+    const baseViewBox = { x: 0, y: 0, width: 1000, height: 650 };
+    const zoomView = (mode) => {
+      const current = root._fallbackViewBox || { ...baseViewBox };
+      const factor = mode === "in" ? .78 : mode === "out" ? 1.28 : 1;
+      const width = mode === "reset" ? baseViewBox.width : Math.min(baseViewBox.width, Math.max(280, current.width * factor));
+      const height = mode === "reset" ? baseViewBox.height : Math.min(baseViewBox.height, Math.max(182, current.height * factor));
+      root._fallbackViewBox = mode === "reset" ? { ...baseViewBox } : { x: (baseViewBox.width - width) / 2, y: (baseViewBox.height - height) / 2, width, height };
+      const view = root._fallbackViewBox;
+      svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.width} ${view.height}`);
+    };
+    zoomBox.querySelectorAll("[data-fallback-zoom]").forEach((button) => button.addEventListener("click", () => zoomView(button.dataset.fallbackZoom)));
+    root.addEventListener("wheel", (event) => { event.preventDefault(); zoomView(event.deltaY < 0 ? "in" : "out"); }, { passive: false });
     root.dataset.baseMode = C.project.defaultBase;
     root.classList.toggle("satellite", C.project.defaultBase === "satellite");
     root.classList.toggle("terrain", C.project.defaultBase === "terrain");
     createTdtTiles(root, C.project.defaultBase);
-    const svg = root.querySelector("svg");
     const parcelGroup = root.querySelector(".fallback-parcels");
     const markerGroup = root.querySelector(".fallback-markers");
-    const bounds = geometryBounds(features);
+    const bounds = geometryBounds(features, window.ADMIN_BOUNDARY);
     const project = ([lon, lat]) => [44 + ((lon - bounds.minX) / Math.max(bounds.width, 1e-9)) * 880, 580 - ((lat - bounds.minY) / Math.max(bounds.height, 1e-9)) * 500];
     features.forEach((feature, index) => {
       const status = parcelStatus(index);
@@ -706,7 +724,7 @@
         parcelGroup.appendChild(path);
       });
     });
-    if (!compact) {
+    {
       const placedMarkers = [];
       state.cameras.forEach((camera, index) => {
         const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
@@ -735,7 +753,7 @@
     }
     root.addEventListener("click", () => { if (!compact) hideMapDetail(); });
     state.fallbackMaps[containerId] = { root, features, project, bounds };
-    fetchBoundary(C.project.adminBoundaryUrl).then((data) => { if (data) drawFallbackBoundary(root, data, project); });
+    if (window.ADMIN_BOUNDARY) drawFallbackBoundary(root, window.ADMIN_BOUNDARY, project);
   }
 
   function drawFallbackBoundary(root, data, project) {
@@ -743,14 +761,14 @@
     if (!group) return;
     const walkGeometry = (geometry) => {
       if (!geometry) return;
-      const polygons = geometry.type === "MultiPolygon" ? geometry.coordinates.flat(1) : (geometry.type === "Polygon" ? geometry.coordinates : []);
-      polygons.forEach((ring) => {
+      const polygons = geometry.type === "MultiPolygon" ? geometry.coordinates : (geometry.type === "Polygon" ? [geometry.coordinates] : []);
+      polygons.forEach((polygon) => polygon.forEach((ring) => {
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         path.setAttribute("class", "fallback-boundary");
         path.setAttribute("fill", "none");
         path.setAttribute("d", ring.map((point, index) => { const [x, y] = project(point); return `${index ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`; }).join(" ") + " Z");
         group.appendChild(path);
-      });
+      }));
     };
     if (data.type === "FeatureCollection") data.features.forEach((feature) => walkGeometry(feature.geometry));
     else if (data.type === "Feature") walkGeometry(data.geometry);
@@ -793,12 +811,15 @@
     root.prepend(layer);
   }
 
-  function geometryBounds(features) {
+  function geometryBounds(features, boundaryData = null) {
     const points = [];
     features.forEach((feature) => {
       const walk = (value) => { if (Array.isArray(value) && typeof value[0] === "number") points.push(value); else if (Array.isArray(value)) value.forEach(walk); };
       walk(feature.geometry?.coordinates || []);
     });
+    const boundaryPoints = boundaryData?.features?.flatMap((feature) => feature.geometry?.coordinates || []) || [];
+    const walkBoundary = (value) => { if (Array.isArray(value) && typeof value[0] === "number") points.push(value); else if (Array.isArray(value)) value.forEach(walkBoundary); };
+    walkBoundary(boundaryPoints);
     const minX = Math.min(...points.map((point) => point[0]));
     const maxX = Math.max(...points.map((point) => point[0]));
     const minY = Math.min(...points.map((point) => point[1]));
@@ -809,21 +830,25 @@
   async function loadMapData(map, containerId, compact) {
     try {
       const embedded = window.EMBEDDED_DATA?.parcels;
-      const geojson = (location.protocol === "file:" || navigator.onLine === false) && embedded ? embedded : await (async () => {
+      const sourceGeoJSON = (location.protocol === "file:" || navigator.onLine === false) && embedded ? embedded : await (async () => {
         const response = await fetch(C.data.parcels, { cache: "no-store" });
         return response.json();
       })();
+      const geojson = normalizeParcelGeoJSON(sourceGeoJSON);
       state.parcels = geojson.features || [];
       enrichParcelProperties(state.parcels);
       state.parcelDataLoaded = true;
       drawParcelLayer(map, containerId, compact, geojson);
-      if (!compact) addMapLayers(map);
+      addAdminBoundary(map, compact);
+      addMapLayers(map, compact);
     } catch (error) {
-      const fallback = window.EMBEDDED_DATA?.parcels || makeFallbackParcels();
+      const fallbackSource = window.EMBEDDED_DATA?.parcels;
+      const fallback = fallbackSource ? normalizeParcelGeoJSON(fallbackSource) : makeFallbackParcels();
       state.parcels = fallback.features;
       enrichParcelProperties(state.parcels);
       drawParcelLayer(map, containerId, compact, fallback);
-      if (!compact) addMapLayers(map);
+      addAdminBoundary(map, compact);
+      addMapLayers(map, compact);
       showToast("本地地块数据已加载，底图服务稍后重试", "warn");
     }
   }
@@ -916,14 +941,15 @@
     if (card) card.classList.add("hidden");
   }
 
-  function addMapLayers(map) {
+  function addMapLayers(map, compact = false) {
+    const markerSize = compact ? 24 : 34;
     const cameras = L.layerGroup();
     const placedMarkers = [];
     state.cameras.forEach((camera, index) => {
       const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
       const [lng, lat] = markerPoint(feature, "camera", index, placedMarkers);
       placedMarkers.push([lng, lat]);
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" src="./assets/icons/camera-marker.png?v=20260920" alt="视频点位" /></div>`, iconSize: [34, 34], iconAnchor: [17, 32] });
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" style="width:${markerSize}px;height:${markerSize}px" src="./assets/icons/camera-marker.png?v=20260920" alt="视频点位" /></div>`, iconSize: [markerSize, markerSize], iconAnchor: [markerSize / 2, markerSize - 2] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${camera.name}</strong><br>${camera.plot} · ${camera.owner}<br><span style="color:#62e5ad">● ${camera.online ? "在线" : "信号波动"}</span>`).addTo(cameras);
     });
     cameras.addTo(map);
@@ -933,25 +959,26 @@
       const feature = parcelFeature(alert.parcelId) || state.parcels[(index + 4) % Math.max(1, state.parcels.length)];
       const [lng, lat] = markerPoint(feature, "alert", index, placedMarkers);
       placedMarkers.push([lng, lat]);
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" src="./assets/icons/alert-marker.png?v=20260920" alt="风险告警" /></div>`, iconSize: [34, 34], iconAnchor: [17, 32] });
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" style="width:${markerSize}px;height:${markerSize}px" src="./assets/icons/alert-marker.png?v=20260920" alt="风险告警" /></div>`, iconSize: [markerSize, markerSize], iconAnchor: [markerSize / 2, markerSize - 2] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${alert.title}</strong><br>${alert.zone}<br>${alert.time}<br><button style="margin-top:7px" onclick="window.prototypeOpenAlert('${alert.id}')">查看告警详情</button>`).addTo(alerts);
     });
     alerts.addTo(map);
     state.mapAlertLayer = alerts;
+  }
+
+  function addAdminBoundary(map, compact = false) {
     fetchBoundary(C.project.adminBoundaryUrl).then((data) => {
       if (!data) return;
-      state.adminHaloLayer = L.geoJSON(data, { style: { color: "#ffffff", weight: 8, opacity: .9, dashArray: "14 8", fillColor: "#ffffff", fillOpacity: .02, interactive: false } }).addTo(map);
-      state.adminLayer = L.geoJSON(data, { style: { color: "#ff4f21", weight: 5, opacity: 1, dashArray: "16 7", lineCap: "round", lineJoin: "round", fillColor: "#f5bd61", fillOpacity: .08 } }).addTo(map);
+      state.adminHaloLayer = L.geoJSON(data, { style: { color: "#071d35", weight: 8, opacity: .92, fillColor: "#071d35", fillOpacity: .03, interactive: false } }).addTo(map);
+      state.adminLayer = L.geoJSON(data, { style: { color: "#ffb454", weight: 3, opacity: .98, dashArray: "10 6", lineCap: "round", lineJoin: "round", fillColor: "#f5bd61", fillOpacity: .06 } }).addTo(map);
+      if (state.parcelLayer?.getBounds?.().isValid?.()) map.fitBounds(state.parcelLayer.getBounds(), { padding: compact ? [10, 10] : [25, 25], maxZoom: compact ? 14 : 16 });
+      state.parcelLayer?.bringToFront?.();
       state.adminLayer.bringToFront();
     });
   }
 
   async function fetchBoundary(primary) {
-    if (location.protocol === "file:" || navigator.onLine === false) {
-      const generated = buildParcelBoundary(window.EMBEDDED_DATA?.parcels || state.parcels);
-      if (generated) return generated;
-      if (window.EMBEDDED_DATA?.boundary) return window.EMBEDDED_DATA.boundary;
-    }
+    if (window.ADMIN_BOUNDARY) return window.ADMIN_BOUNDARY;
     try {
       const response = await fetch(C.project.adminBoundaryFallback, { cache: "no-store" });
       if (response.ok) return await response.json();
@@ -960,8 +987,7 @@
       const response = await fetch(primary, { cache: "force-cache" });
       if (response.ok) return await response.json();
     } catch (error) {}
-    const generated = buildParcelBoundary(window.EMBEDDED_DATA?.parcels || state.parcels);
-    if (generated) return generated;
+    if (window.ADMIN_BOUNDARY) return window.ADMIN_BOUNDARY;
     if (window.EMBEDDED_DATA?.boundary) return window.EMBEDDED_DATA.boundary;
     return null;
   }
@@ -1256,7 +1282,7 @@
           showToast(`已按合同风险筛选：${contractLabel(value)}`);
         }
       }
-      else if (action === "locateProject") { state.mapInstances.fullMap?.setView(C.project.center, 13); showToast("已定位到绍兴市越城区滨海新区项目区"); }
+      else if (action === "locateProject") { state.mapInstances.fullMap?.setView(C.project.center, 13); showToast("已定位到绍兴滨海新区项目区"); }
       else if (action === "toggleSatellite") toggleSatellite();
       else if (action === "addCrop") addCrop();
       else if (action === "saveCrop") saveCrop();
