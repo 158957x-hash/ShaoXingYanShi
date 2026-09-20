@@ -670,7 +670,7 @@
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
         marker.setAttribute("class", "fallback-marker fallback-camera-marker"); marker.dataset.action = "cameraDetail"; marker.dataset.id = camera.id;
         marker.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
-        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/camera-marker.png" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
+        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/camera-marker.png?v=20260920" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
         marker.addEventListener("click", (event) => { event.stopPropagation(); openCamera(camera.id); });
         markerGroup.appendChild(marker);
       });
@@ -680,7 +680,7 @@
         const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
         marker.setAttribute("class", "fallback-marker fallback-alert-marker");
         marker.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
-        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/alert-marker.png" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
+        marker.innerHTML = `<image class="fallback-marker-image" href="./assets/icons/alert-marker.png?v=20260920" x="-18" y="-36" width="36" height="36" preserveAspectRatio="xMidYMid meet"></image>`;
         marker.addEventListener("click", (event) => { event.stopPropagation(); alertDetail(alert.id); });
         markerGroup.appendChild(marker);
       });
@@ -873,7 +873,7 @@
     state.cameras.forEach((camera, index) => {
       const feature = parcelFeature(camera.plot) || state.parcels[index % Math.max(1, state.parcels.length)];
       const [lng, lat] = featureCenter(feature);
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" src="./assets/icons/camera-marker.png" alt="视频点位" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker camera" title="${camera.name}"><img class="map-marker-image" src="./assets/icons/camera-marker.png?v=20260920" alt="视频点位" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${camera.name}</strong><br>${camera.plot} · ${camera.owner}<br><span style="color:#62e5ad">● ${camera.online ? "在线" : "信号波动"}</span>`).addTo(cameras);
     });
     cameras.addTo(map);
@@ -882,7 +882,7 @@
     state.alerts.filter(a => a.level === "red" || a.type === "渣土倾倒").forEach((alert, index) => {
       const feature = parcelFeature(alert.parcelId) || state.parcels[(index + 4) % Math.max(1, state.parcels.length)];
       const [lng, lat] = featureCenter(feature);
-      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" src="./assets/icons/alert-marker.png" alt="风险告警" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
+      const icon = L.divIcon({ className: "", html: `<div class="map-marker alert" title="${alert.title}"><img class="map-marker-image" src="./assets/icons/alert-marker.png?v=20260920" alt="风险告警" /></div>`, iconSize: [38, 38], iconAnchor: [19, 38] });
       L.marker([lat, lng], { icon }).bindPopup(`<strong>${alert.title}</strong><br>${alert.zone}<br>${alert.time}<br><button style="margin-top:7px" onclick="window.prototypeOpenAlert('${alert.id}')">查看告警详情</button>`).addTo(alerts);
     });
     alerts.addTo(map);
