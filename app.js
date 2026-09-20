@@ -615,7 +615,7 @@
   async function initMap(containerId, compact) {
     const node = el(`#${containerId}`);
     if (!node) return;
-    if (!window.L) {
+    if (!window.L || location.protocol === "file:" || navigator.onLine === false) {
       await initFallbackMap(containerId, compact);
       return;
     }
